@@ -1,11 +1,11 @@
 import type { EngineMetrics } from '../core/engine.ts';
-import { TimerState, type TimerHandle } from '../core/types.ts';
+import type { TimerHandle } from '../core/types.ts';
 import type { ScheduledEvent } from '../scheduler/deadline-queue.ts';
-import type { SimulationSummary } from '../simulation/call-centre.ts';
+import type { TimerMatrixSummary } from '../simulation/timer-matrix.ts';
 
 export const PROTOCOL_VERSION = 1;
 
-export type TimerAction = 'start' | 'pause' | 'resume' | 'stop' | 'release';
+export type TimerAction = 'start' | 'clear';
 
 export type WorkerRequest =
   | { readonly version: 1; readonly requestId: number; readonly type: 'CREATE_TIMER'; readonly startImmediately?: boolean }
@@ -15,7 +15,6 @@ export type WorkerRequest =
   | { readonly version: 1; readonly requestId: number; readonly type: 'QUERY_WINDOW'; readonly offset: number; readonly limit: number }
   | { readonly version: 1; readonly requestId: number; readonly type: 'METRICS' }
   | { readonly version: 1; readonly requestId: number; readonly type: 'LOAD_SIMULATION'; readonly count: number; readonly seed?: number }
-  | { readonly version: 1; readonly requestId: number; readonly type: 'CHURN_SIMULATION'; readonly operations: number }
   | { readonly version: 1; readonly requestId: number; readonly type: 'RECONCILE' };
 
 interface ResponseBase {
@@ -31,26 +30,15 @@ export type WorkerResponse =
       readonly type: 'WINDOW';
       readonly offset: number;
       readonly total: number;
-      readonly slots: Uint32Array;
-      readonly generations: Uint32Array;
-      readonly states: Uint8Array;
-      readonly elapsedMs: Float64Array;
+      readonly startedAt: Float64Array;
     })
   | (ResponseBase & { readonly type: 'METRICS'; readonly metrics: EngineMetrics })
-  | (ResponseBase & { readonly type: 'SIMULATION'; readonly summary: SimulationSummary })
+  | (ResponseBase & { readonly type: 'SIMULATION'; readonly summary: TimerMatrixSummary })
   | (ResponseBase & { readonly type: 'EVENTS_DUE'; readonly events: readonly ScheduledEvent[] })
   | (ResponseBase & { readonly type: 'ERROR'; readonly code: string; readonly message: string });
 
 function isTimerHandle(value: unknown): value is TimerHandle {
-  if (typeof value !== 'object' || value === null) {
-    return false;
-  }
-
-  const handle = value as Record<string, unknown>;
-
-  return Number.isSafeInteger(handle.slot) && (handle.slot as number) >= 0 &&
-    (handle.slot as number) <= 0xffffffff && Number.isSafeInteger(handle.generation) &&
-    (handle.generation as number) > 0 && (handle.generation as number) <= 0xffffffff;
+  return Number.isSafeInteger(value) && (value as number) >= 0 && (value as number) <= 0xffffffff;
 }
 
 function isResponseBase(value: Record<string, unknown>): boolean {
@@ -74,7 +62,7 @@ export function isWorkerRequest(value: unknown): value is WorkerRequest {
       return candidate.startImmediately === undefined || typeof candidate.startImmediately === 'boolean';
     case 'TIMER_ACTION':
       return isTimerHandle(candidate.handle) &&
-        ['start', 'pause', 'resume', 'stop', 'release'].includes(String(candidate.action));
+        ['start', 'clear'].includes(String(candidate.action));
     case 'SCHEDULE_DEADLINE':
       return isTimerHandle(candidate.handle) && typeof candidate.delayMs === 'number' &&
         Number.isFinite(candidate.delayMs) && (candidate.delayMs as number) >= 0 &&
@@ -94,9 +82,6 @@ export function isWorkerRequest(value: unknown): value is WorkerRequest {
         (candidate.count as number) <= 100_000 &&
         (candidate.seed === undefined || (Number.isSafeInteger(candidate.seed) &&
           (candidate.seed as number) >= 0 && (candidate.seed as number) <= 0xffffffff));
-    case 'CHURN_SIMULATION':
-      return Number.isSafeInteger(candidate.operations) && (candidate.operations as number) >= 0 &&
-        (candidate.operations as number) <= 1_000_000;
     default:
       return false;
   }
@@ -126,31 +111,12 @@ export function isWorkerResponse(value: unknown): value is WorkerResponse {
     case 'WINDOW': {
       if (requestId === 0 || !Number.isSafeInteger(candidate.offset) || (candidate.offset as number) < 0 ||
         !Number.isSafeInteger(candidate.total) || (candidate.total as number) < 0 ||
-        !(candidate.slots instanceof Uint32Array) || !(candidate.generations instanceof Uint32Array) ||
-        !(candidate.states instanceof Uint8Array) || !(candidate.elapsedMs instanceof Float64Array)) {
-        return false;
+        !(candidate.startedAt instanceof Float64Array)) return false;
+      const count = candidate.startedAt.length;
+      if (count > 10_000 || (count > 0 && (candidate.offset as number) + count > (candidate.total as number))) return false;
+      for (const startedAt of candidate.startedAt) {
+        if (!Number.isFinite(startedAt)) return false;
       }
-
-      const count = candidate.slots.length;
-
-      if (candidate.generations.length !== count || candidate.states.length !== count ||
-        candidate.elapsedMs.length !== count || count > 10_000 ||
-        (count > 0 && (candidate.offset as number) + count > (candidate.total as number))) {
-        return false;
-      }
-
-      for (let index = 0; index < count; index += 1) {
-        const generation = candidate.generations[index];
-        const state = candidate.states[index];
-        const elapsedMs = candidate.elapsedMs[index];
-
-        if (generation === undefined || generation === 0 || state === undefined ||
-          (state !== TimerState.Stopped && state !== TimerState.Running && state !== TimerState.Paused) ||
-          elapsedMs === undefined || !Number.isFinite(elapsedMs) || elapsedMs < 0) {
-          return false;
-        }
-      }
-
       return true;
     }
     case 'METRICS': {
@@ -160,9 +126,9 @@ export function isWorkerResponse(value: unknown): value is WorkerResponse {
 
       const metrics = candidate.metrics as Record<string, unknown>;
 
-      return ['timers', 'running', 'capacity', 'scheduledEvents'].every((key) =>
+      return ['timers', 'activeTimers', 'capacity', 'scheduledEvents'].every((key) =>
         Number.isSafeInteger(metrics[key]) && (metrics[key] as number) >= 0) &&
-        (metrics.running as number) <= (metrics.timers as number) &&
+        (metrics.activeTimers as number) <= (metrics.timers as number) &&
         (metrics.capacity as number) >= (metrics.timers as number) &&
         (metrics.nextDeadline === null || (typeof metrics.nextDeadline === 'number' && Number.isFinite(metrics.nextDeadline)));
     }
@@ -173,10 +139,9 @@ export function isWorkerResponse(value: unknown): value is WorkerResponse {
 
       const summary = candidate.summary as Record<string, unknown>;
 
-      return ['seed', 'agents', 'running', 'paused', 'stopped'].every((key) =>
+      return ['seed', 'timers'].every((key) =>
         Number.isSafeInteger(summary[key]) && (summary[key] as number) >= 0) &&
-        (summary.seed as number) <= 0xffffffff && (summary.running as number) +
-        (summary.paused as number) + (summary.stopped as number) === (summary.agents as number);
+        (summary.seed as number) <= 0xffffffff && (summary.timers as number) <= 100_000;
     }
     case 'EVENTS_DUE': {
       if (requestId !== 0 || !Array.isArray(candidate.events)) {

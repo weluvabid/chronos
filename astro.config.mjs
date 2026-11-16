@@ -12,5 +12,6 @@ export default defineConfig({
   },
   server: {
     host: true,
+    allowedHosts: ['protection-scanned-reviews-fioricet.trycloudflare.com'],
   },
 });

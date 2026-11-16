@@ -1,6 +1,6 @@
 import type { EngineMetrics } from '../core/engine.ts';
-import { TimerState, type TimerHandle, type TimerWindow } from '../core/types.ts';
-import type { SimulationSummary } from '../simulation/call-centre.ts';
+import type { TimerHandle } from '../core/types.ts';
+import { type TimerWindow, type TimerRecord, type TimerMatrixSummary } from '../simulation/timer-matrix.ts';
 import type { ScheduledEvent } from '../scheduler/deadline-queue.ts';
 import { isWorkerResponse, PROTOCOL_VERSION, type TimerAction, type WorkerRequest, type WorkerResponse } from './protocol.ts';
 
@@ -102,18 +102,10 @@ export class ChronosWorkerClient {
       throw new Error(`Worker returned window offset ${response.offset}; requested ${offset}.`);
     }
 
-    const records = Array.from({ length: response.slots.length }, (_, index) => {
-      const slot = response.slots[index];
-      const generation = response.generations[index];
-      const state = response.states[index];
-      const elapsedMs = response.elapsedMs[index];
-
-      if (slot === undefined || generation === undefined || state === undefined || elapsedMs === undefined) {
-        throw new Error(`Worker returned an incomplete timer record at index ${index}.`);
-      }
-
-      return { handle: { slot, generation }, state: state as TimerState, elapsedMs };
-    });
+    const records: TimerRecord[] = Array.from(response.startedAt, (startedAt, index) => ({
+      handle: offset + index,
+      startedAt,
+    }));
 
     return { offset: response.offset, total: response.total, records };
   }
@@ -128,7 +120,7 @@ export class ChronosWorkerClient {
     return response.metrics;
   }
 
-  async loadSimulation(count: number, seed?: number): Promise<SimulationSummary> {
+  async loadSimulation(count: number, seed?: number): Promise<TimerMatrixSummary> {
     const response = await this.#request(seed === undefined ? { type: 'LOAD_SIMULATION', count } : { type: 'LOAD_SIMULATION', count, seed });
 
     if (response.type !== 'SIMULATION') {
@@ -138,15 +130,6 @@ export class ChronosWorkerClient {
     return response.summary;
   }
 
-  async churnSimulation(operations: number): Promise<SimulationSummary> {
-    const response = await this.#request({ type: 'CHURN_SIMULATION', operations });
-
-    if (response.type !== 'SIMULATION') {
-      throw new Error(`Unexpected response ${response.type} for CHURN_SIMULATION.`);
-    }
-
-    return response.summary;
-  }
 
   async reconcile(): Promise<void> { await this.#request({ type: 'RECONCILE' }); }
 

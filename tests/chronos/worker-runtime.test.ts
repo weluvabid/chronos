@@ -54,7 +54,7 @@ test('worker protocol initializes simulation and returns only bounded typed-arra
     return;
   }
 
-  assert.equal(loaded.summary.agents, 1_000);
+  assert.equal(loaded.summary.timers, 1_000);
 
   port.send(request(2, 'QUERY_WINDOW', { offset: 250, limit: 64 }));
   const window = port.take(2);
@@ -67,10 +67,7 @@ test('worker protocol initializes simulation and returns only bounded typed-arra
 
   assert.equal(window.offset, 250);
   assert.equal(window.total, 1_000);
-  assert.equal(window.slots.length, 64);
-  assert.equal(window.generations.length, 64);
-  assert.equal(window.states.length, 64);
-  assert.equal(window.elapsedMs.length, 64);
+  assert.equal(window.startedAt.length, 64);
 
   port.send(request(3, 'METRICS'));
   const metrics = port.take(3);
@@ -93,13 +90,13 @@ test('worker rejects malformed and unexpected operations observably', () => {
     assert.equal(port.messages.at(-1)?.code, 'INVALID_PROTOCOL_MESSAGE');
   }
 
-  port.send(request(2, 'CHURN_SIMULATION', { operations: 1 }));
+  port.send(request(2, 'QUERY_WINDOW', { offset: 0, limit: 1 }));
   const response = port.take(2);
 
   assert.equal(response?.type, 'ERROR');
 
   if (response?.type === 'ERROR') {
-    assert.match(response.message, /not been initialized/);
+    assert.match(response.message, /before the simulation has been initialized/);
   }
 });
 
@@ -153,7 +150,7 @@ test('worker aggregates stale deadline failures instead of flooding the main thr
   port.take(3);
   assert.equal(port.timeouts.size, 1);
 
-  port.send(request(4, 'TIMER_ACTION', { action: 'release', handle: created.handle }));
+  port.send(request(4, 'TIMER_ACTION', { action: 'clear', handle: created.handle }));
   port.take(4);
   port.fireNextTimeout();
 
@@ -162,7 +159,7 @@ test('worker aggregates stale deadline failures instead of flooding the main thr
   assert.equal(errors.length, 1);
 
   if (errors[0]?.type === 'ERROR') {
-    assert.equal(errors[0].code, 'STALE_HANDLE');
+    assert.equal(errors[0].code, 'TIMER_INACTIVE');
     assert.match(errors[0].message, /2 scheduled event\(s\) were discarded/);
   }
 });

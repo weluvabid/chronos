@@ -23,7 +23,6 @@
     "benchmark": "node --experimental-strip-types scripts/benchmark-chronos.mjs"
   },
   "dependencies": {
-    "@tanstack/svelte-virtual": "3.13.39",
     "@weluvabid/iris": "0.4.1",
     "svelte": "^5.0.0"
   },

@@ -4,7 +4,7 @@ import { DeadlineQueue, ScheduledEventKind } from '../../src/lib/chronos/schedul
 
 test('deadline queue drains in deadline order with stable FIFO ordering for ties', () => {
   const queue = new DeadlineQueue(1);
-  const handle = { slot: 3, generation: 1 };
+  const handle = 3;
   const first = queue.schedule(20, ScheduledEventKind.TimerDeadline, handle);
   const second = queue.schedule(10, ScheduledEventKind.TimerDeadline, handle);
   const third = queue.schedule(10, ScheduledEventKind.Custom, handle, 7);
@@ -19,7 +19,7 @@ test('deadline queue drains in deadline order with stable FIFO ordering for ties
 
 test('arbitrary cancellation preserves heap invariants', () => {
   const queue = new DeadlineQueue(2);
-  const handle = { slot: 0, generation: 1 };
+  const handle = 0;
   const ids = Array.from({ length: 100 }, (_, i) => queue.schedule(100 - i, ScheduledEventKind.Custom, handle));
   const cancelledId = ids.at(50);
 
@@ -35,7 +35,7 @@ test('arbitrary cancellation preserves heap invariants', () => {
 
 test('invalid event payloads and deadlines are rejected', () => {
   const queue = new DeadlineQueue();
-  const handle = { slot: 0, generation: 1 };
+  const handle = 0;
 
   assert.throws(() => queue.schedule(Number.NaN, ScheduledEventKind.Custom, handle), RangeError);
   assert.throws(() => queue.schedule(1, 99 as ScheduledEventKind, handle), /Unsupported event kind/);
@@ -43,7 +43,7 @@ test('invalid event payloads and deadlines are rejected', () => {
 
 test('due-event drain limits preserve overdue events for the next central wakeup', () => {
   const queue = new DeadlineQueue();
-  const handle = { slot: 2, generation: 1 };
+  const handle = 2;
 
   for (let index = 0; index < 5; index += 1) {
     queue.schedule(10, ScheduledEventKind.Custom, handle, index);

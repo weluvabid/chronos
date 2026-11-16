@@ -1,11 +1,28 @@
-/** A monotonic millisecond clock. Values are process-local and must not be persisted. */
+/** A monotonic millisecond clock aligned across the window and its workers. */
 export interface Clock {
   now(): number;
 }
 
 export class PerformanceClock implements Clock {
+  #lastTime = Number.NEGATIVE_INFINITY;
+  readonly #read: () => number;
+
+  constructor(read: () => number = () => performance.timeOrigin + performance.now()) {
+    this.#read = read;
+  }
+
   now(): number {
-    return performance.now();
+    const current = this.#read();
+
+    if (!Number.isFinite(current)) {
+      throw new RangeError('Performance clock returned a non-finite value.');
+    }
+
+    // Some browser/OS clock implementations can expose tiny backwards steps.
+    // Clamp at the clock boundary so every consumer observes monotonic time.
+    this.#lastTime = Math.max(this.#lastTime, current);
+
+    return this.#lastTime;
   }
 }
 

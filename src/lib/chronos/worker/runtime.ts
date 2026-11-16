@@ -2,7 +2,7 @@ import { PerformanceClock } from '../core/clock.ts';
 import { ChronosEngine } from '../core/engine.ts';
 import { ChronosError, type TimerHandle } from '../core/types.ts';
 import type { ScheduledEvent } from '../scheduler/deadline-queue.ts';
-import { CallCentreSimulation } from '../simulation/call-centre.ts';
+import { TimerMatrixSimulation } from '../simulation/timer-matrix.ts';
 import { isWorkerRequest, type WorkerRequest, type WorkerResponse } from './protocol.ts';
 
 interface WorkerPort {
@@ -15,7 +15,7 @@ interface WorkerPort {
 export function installWorkerRuntime(port: WorkerPort): void {
   const clock = new PerformanceClock();
   const engine = new ChronosEngine(clock);
-  let simulation: CallCentreSimulation | null = null;
+  let simulation: TimerMatrixSimulation | null = null;
   let wakeup: number | null = null;
   const respond = (message: WorkerResponse, transfer?: Transferable[]): void => {
     port.postMessage(message, transfer);
@@ -46,7 +46,9 @@ export function installWorkerRuntime(port: WorkerPort): void {
 
     for (const event of events) {
       try {
-        engine.timers.state(event.handle);
+        if (!engine.timers.has(event.handle) || Number.isNaN(engine.timers.startedAt(event.handle))) {
+          throw new ChronosError('Scheduled event references an inactive call.', 'TIMER_INACTIVE');
+        }
         validEvents.push(event);
       } catch (error) {
         const code = error instanceof ChronosError ? error.code : 'RUNTIME_ERROR';
@@ -81,7 +83,8 @@ export function installWorkerRuntime(port: WorkerPort): void {
     try {
       switch (request.type) {
         case 'CREATE_TIMER': {
-          const handle = engine.createTimer(request.startImmediately ?? false);
+          const handle = engine.createTimer();
+          if (request.startImmediately) engine.start(handle);
 
           respond({ version: 1, requestId: request.requestId, type: 'TIMER_CREATED', handle });
           break;
@@ -106,11 +109,13 @@ export function installWorkerRuntime(port: WorkerPort): void {
           break;
         }
         case 'QUERY_WINDOW': {
-          const window = engine.timers.windowBuffers(request.offset, request.limit);
+          if (simulation === null) {
+            throw new Error('Cannot query simulation records before the simulation has been initialized.');
+          }
 
-          respond({ version: 1, requestId: request.requestId, type: 'WINDOW', ...window }, [
-            window.slots.buffer, window.generations.buffer, window.states.buffer, window.elapsedMs.buffer,
-          ]);
+          const window = simulation.windowBuffers(request.offset, request.limit);
+
+          respond({ version: 1, requestId: request.requestId, type: 'WINDOW', ...window }, [window.startedAt.buffer]);
           break;
         }
         case 'METRICS':
@@ -121,20 +126,12 @@ export function installWorkerRuntime(port: WorkerPort): void {
             throw new Error('Simulation has already been initialized.');
           }
 
-          const candidate = new CallCentreSimulation(engine, request.seed);
+          const candidate = new TimerMatrixSimulation(engine, request.seed);
           const summary = candidate.initialize(request.count);
 
           simulation = candidate;
 
           respond({ version: 1, requestId: request.requestId, type: 'SIMULATION', summary });
-          break;
-        }
-        case 'CHURN_SIMULATION': {
-          if (simulation === null) {
-            throw new Error('Simulation has not been initialized.');
-          }
-
-          respond({ version: 1, requestId: request.requestId, type: 'SIMULATION', summary: simulation.churn(request.operations) });
           break;
         }
         case 'RECONCILE':
@@ -162,16 +159,7 @@ export function installWorkerRuntime(port: WorkerPort): void {
       case 'start': engine.start(handle);
 
       return;
-      case 'pause': engine.pause(handle);
-
-      return;
-      case 'resume': engine.resume(handle);
-
-      return;
-      case 'stop': engine.stop(handle);
-
-      return;
-      case 'release': engine.release(handle);
+      case 'clear': engine.clear(handle);
 
       return;
       default: throw new Error(`Unsupported timer action: ${action}.`);

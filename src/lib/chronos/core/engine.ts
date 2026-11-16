@@ -1,11 +1,11 @@
 import type { Clock } from './clock.ts';
 import { TimerRegistry } from './timer-registry.ts';
-import type { TimerHandle, TimerSnapshot, TimerWindow } from './types.ts';
+import type { TimerHandle } from './types.ts';
 import { DeadlineQueue, ScheduledEventKind, type ScheduledEvent } from '../scheduler/deadline-queue.ts';
 
 export interface EngineMetrics {
   readonly timers: number;
-  readonly running: number;
+  readonly activeTimers: number;
   readonly capacity: number;
   readonly scheduledEvents: number;
   readonly nextDeadline: number | null;
@@ -22,29 +22,66 @@ export class ChronosEngine {
     this.deadlines = new DeadlineQueue();
   }
 
-  createTimer(startImmediately = false): TimerHandle { return this.timers.create(startImmediately); }
-  start(handle: TimerHandle): void { this.timers.start(handle); }
-  pause(handle: TimerHandle): void { this.timers.pause(handle); }
-  resume(handle: TimerHandle): void { this.timers.resume(handle); }
-  stop(handle: TimerHandle): void { this.timers.stop(handle); }
-  release(handle: TimerHandle): void { this.timers.release(handle); }
-  elapsed(handle: TimerHandle): number { return this.timers.elapsed(handle); }
-  snapshot(handle: TimerHandle): TimerSnapshot {
-    return { handle, state: this.timers.state(handle), elapsedMs: this.timers.elapsed(handle) };
+  createTimer(): TimerHandle {
+    return this.timers.create();
   }
-  window(offset: number, limit: number): TimerWindow { return this.timers.window(offset, limit); }
+
+  start(handle: TimerHandle): void {
+    this.timers.start(handle);
+  }
+
+  now(): number {
+    const now = this.#clock.now();
+
+    if (!Number.isFinite(now)) {
+      throw new Error('Clock returned a non-finite value.');
+    }
+
+    return now;
+  }
+
+  startWithElapsed(handle: TimerHandle, elapsedMs: number, sampledNow?: number): void {
+    if (!Number.isFinite(elapsedMs) || elapsedMs < 0) {
+      throw new RangeError('Initial elapsed time must be finite and non-negative.');
+    }
+
+    const now = sampledNow ?? this.now();
+
+    if (!Number.isFinite(now)) {
+      throw new Error('Clock returned a non-finite value.');
+    }
+
+    this.timers.startAt(handle, now - elapsedMs, now);
+  }
+
+  clear(handle: TimerHandle): void {
+    this.timers.clear(handle);
+  }
+
+  elapsed(handle: TimerHandle): number {
+    return this.timers.elapsed(handle);
+  }
 
   scheduleDeadline(handle: TimerHandle, deadline: number, payload = 0): number {
-    this.timers.state(handle);
+    if (!this.timers.has(handle)) {
+      throw new Error('Deadline references an unknown timer.');
+    }
 
     return this.deadlines.schedule(deadline, ScheduledEventKind.TimerDeadline, handle, payload);
   }
-  cancelDeadline(eventId: number): boolean { return this.deadlines.cancel(eventId); }
-  drainDue(now = this.#clock.now(), limit = 10_000): ScheduledEvent[] { return this.deadlines.popDue(now, limit); }
+
+  cancelDeadline(eventId: number): boolean {
+    return this.deadlines.cancel(eventId);
+  }
+
+  drainDue(now = this.#clock.now(), limit = 10_000): ScheduledEvent[] {
+    return this.deadlines.popDue(now, limit);
+  }
+
   metrics(): EngineMetrics {
     return {
       timers: this.timers.size,
-      running: this.timers.runningCount,
+      activeTimers: this.timers.activeCount,
       capacity: this.timers.capacity,
       scheduledEvents: this.deadlines.size,
       nextDeadline: this.deadlines.nextDeadline,

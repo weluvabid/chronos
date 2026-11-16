@@ -29,7 +29,6 @@ export class DeadlineQueue {
   #deadlines: Float64Array;
   #ids: Float64Array;
   #slots: Uint32Array;
-  #generations: Uint32Array;
   #kinds: Uint8Array;
   #payloads: Uint32Array;
   #positions = new Map<number, number>();
@@ -44,7 +43,6 @@ export class DeadlineQueue {
     this.#deadlines = new Float64Array(initialCapacity);
     this.#ids = new Float64Array(initialCapacity);
     this.#slots = new Uint32Array(initialCapacity);
-    this.#generations = new Uint32Array(initialCapacity);
     this.#kinds = new Uint8Array(initialCapacity);
     this.#payloads = new Uint32Array(initialCapacity);
   }
@@ -61,10 +59,7 @@ export class DeadlineQueue {
       throw new ChronosError(`Unsupported event kind: ${kind}.`, 'UNSUPPORTED_EVENT_KIND');
     }
 
-    if (!Number.isSafeInteger(handle.slot) || handle.slot < 0 || handle.slot > 0xffffffff ||
-      !Number.isSafeInteger(handle.generation) || handle.generation < 1 || handle.generation > 0xffffffff) {
-      throw new RangeError('Timer handle is invalid.');
-    }
+    if (!Number.isSafeInteger(handle) || handle < 0 || handle > 0xffffffff) throw new RangeError('Timer identifier is invalid.');
 
     if (!Number.isSafeInteger(payload) || payload < 0 || payload > 0xffffffff) {
       throw new RangeError('Payload must be uint32.');
@@ -202,9 +197,6 @@ export class DeadlineQueue {
     value = readValue(this.#slots, a, 'timer slot');
     this.#slots[a] = readValue(this.#slots, b, 'timer slot');
     this.#slots[b] = value;
-    value = readValue(this.#generations, a, 'timer generation');
-    this.#generations[a] = readValue(this.#generations, b, 'timer generation');
-    this.#generations[b] = value;
     value = readValue(this.#kinds, a, 'event kind');
     this.#kinds[a] = readValue(this.#kinds, b, 'event kind');
     this.#kinds[b] = value;
@@ -221,7 +213,7 @@ export class DeadlineQueue {
       id: readValue(this.#ids, index, 'event id'),
       deadline: readValue(this.#deadlines, index, 'deadline'),
       kind: readValue(this.#kinds, index, 'event kind') as ScheduledEventKind,
-      handle: { slot: readValue(this.#slots, index, 'timer slot'), generation: readValue(this.#generations, index, 'timer generation') },
+      handle: readValue(this.#slots, index, 'timer identifier'),
       payload: readValue(this.#payloads, index, 'event payload'),
     };
   }
@@ -229,8 +221,7 @@ export class DeadlineQueue {
   #write(index: number, event: ScheduledEvent): void {
     this.#ids[index] = event.id;
     this.#deadlines[index] = event.deadline;
-    this.#slots[index] = event.handle.slot;
-    this.#generations[index] = event.handle.generation;
+    this.#slots[index] = event.handle;
     this.#kinds[index] = event.kind;
     this.#payloads[index] = event.payload;
   }
@@ -254,7 +245,6 @@ export class DeadlineQueue {
     this.#deadlines = grow(this.#deadlines);
     this.#ids = grow(this.#ids);
     this.#slots = grow(this.#slots);
-    this.#generations = grow(this.#generations);
     this.#kinds = grow(this.#kinds);
     this.#payloads = grow(this.#payloads);
   }

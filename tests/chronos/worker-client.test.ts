@@ -42,9 +42,9 @@ test('worker client correlates responses and enforces request backpressure', asy
   const first = worker.sent[0] as { requestId: number };
 
   worker.emitMessage({ version: 1, requestId: first.requestId, type: 'METRICS', metrics: {
-    timers: 4, running: 3, capacity: 8, scheduledEvents: 0, nextDeadline: null,
+    timers: 4, activeTimers: 3, capacity: 8, scheduledEvents: 0, nextDeadline: null,
   } });
-  assert.deepEqual(await requests[0], { timers: 4, running: 3, capacity: 8, scheduledEvents: 0, nextDeadline: null });
+  assert.deepEqual(await requests[0], { timers: 4, activeTimers: 3, capacity: 8, scheduledEvents: 0, nextDeadline: null });
   client.close();
   assert.equal(worker.terminated, true);
   await Promise.allSettled(requests.slice(1, 64));

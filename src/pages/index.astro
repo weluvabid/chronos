@@ -1,31 +1,11 @@
 ---
 import BaseLayout from '@layouts/BaseLayout.astro';
+import ChronosDashboard from '@components/chronos/ChronosDashboard.svelte';
 ---
 
 <BaseLayout
   title="Chronos — Browser time coordination engine"
   description="A centralized browser time coordination engine."
 >
-  <section class="mx-auto flex max-w-3xl flex-col gap-6 py-12 sm:py-20">
-    <div class="flex flex-wrap items-center gap-2">
-      <span class="rounded-full border border-border px-3 py-1 text-xs font-medium text-muted-foreground">
-        In development
-      </span>
-      <span class="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-        Browser systems engineering
-      </span>
-    </div>
-    <div class="space-y-4">
-      <h1 class="text-4xl font-semibold tracking-tight sm:text-6xl">Time, coordinated.</h1>
-      <p class="max-w-2xl text-pretty text-base leading-8 text-muted-foreground sm:text-lg">
-        Chronos is an experiment in coordinating large numbers of browser timers without making
-        callback frequency the source of truth.
-      </p>
-    </div>
-    <div class="flex flex-wrap gap-3 text-sm text-muted-foreground">
-      <span class="rounded-full border border-border px-3 py-1.5">Timestamp-based timekeeping</span>
-      <span class="rounded-full border border-border px-3 py-1.5">Centralized scheduling</span>
-      <span class="rounded-full border border-border px-3 py-1.5">Web Worker runtime</span>
-    </div>
-  </section>
+  <ChronosDashboard client:load />
 </BaseLayout>

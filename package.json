@@ -19,9 +19,11 @@
     "format:check": "prettier --check .",
     "test": "node --experimental-strip-types --test",
     "check": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm test && pnpm build",
-    "hooks:install": "sh ./scripts/install-hooks.sh"
+    "hooks:install": "sh ./scripts/install-hooks.sh",
+    "benchmark": "node --experimental-strip-types scripts/benchmark-chronos.mjs"
   },
   "dependencies": {
+    "@tanstack/svelte-virtual": "3.13.39",
     "@weluvabid/iris": "0.4.1",
     "svelte": "^5.0.0"
   },

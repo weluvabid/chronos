@@ -1,0 +1,70 @@
+---
+id: needle-language-compiler-and-reversible-debugger
+title: 'Needle: A Tiny Language with a Reversible Debugger'
+type: deep-dive
+category: systems-engineering
+summary: A small language that compiles to Brainfuck, with
+  a bounded reference interpreter, source maps and reversible single-step execution.
+date: 2026-11-13
+project: needle
+tags:
+  - rust
+  - compilers
+  - interpreters
+  - webassembly
+  - debugging
+  - project
+searchTerms:
+  - brainfuck
+  - lexer
+  - parser
+  - source-maps
+  - reversible-execution
+  - wasm
+  - web-worker
+draft: false
+kind: project
+projectDetails:
+  status: experimental
+  stack:
+    - Rust
+    - Brainfuck
+    - WebAssembly
+    - wasm-bindgen
+    - TypeScript
+    - Web Workers
+  order: 9
+  github: https://github.com/weluvabid/needle
+  resources:
+    - label: Source repository
+      url: https://github.com/weluvabid/needle
+    - label: Language and runtime contract
+      url: https://github.com/weluvabid/needle#language-at-a-glance
+---
+
+Needle is a language with eight commands that compiles to Brainfuck. It is a very small language with quite a bit of tooling around it, including a Rust frontend, a direct interpreter, source maps, reversible steps and a playground that runs the core through WASM in a worker.
+
+There are eight commands: `poke` / `nick` bump the cell; `next` / `back` move the pointer; `loop` / `stitch` are the brackets; `spill` writes a byte; and `snag` reads a byte. Counts can be added to the four countable commands. They default to 1, must be on the same line and must be in range.
+
+The tape contains 30,000 unsigned bytes unless configured otherwise. Arithmetic wraps around using modulo 256. The pointer starts at 0. If it moves out of bounds, the interpreter returns a runtime error with the source location. Counted pointer movement is checked before the pointer changes, so an invalid move cannot leave the pointer partway through an operation that should have failed.
+
+`snag` reads a single byte from UTF-8 input. If EOF is reached, the cell remains unchanged. `spill` appends a single byte. In the playground, output is decoded as UTF-8 and invalid bytes appear as replacement characters. These are Needle's input and output rules, regardless of how another Brainfuck interpreter handles EOF.
+
+There are limits to prevent a program from running indefinitely or consuming too many resources. Source code can be at most 256 KiB. Generated Brainfuck can contain at most 1 million instructions. Input and output are each limited to 1 MiB, and a session can execute at most 1 million operations. Tape size and history have their own limits. The parser enforces the source limit; the interpreter enforces the rest.
+
+The lexer, parser, AST, compiler, diagnostics, spans and interpreter live in Rust modules that do not depend on the browser. The compiler outputs Brainfuck code and a mapping back to the Needle operation. The debugger uses that mapping, so `poke 100` counts as one step in the UI even though the generated Brainfuck contains many more instructions. The debugger follows Needle operations while the Brainfuck instructions stay underneath.
+
+WASM is exposed through a `wasm-bindgen` adapter, and the playground is written in TypeScript. Execution runs in a Web Worker so a long-running program does not freeze the page. The language semantics live in Rust, where the tests exercise them.
+
+Backtracking uses deltas to keep track of changes instead of copying the entire tape. Copying all 30,000 cells for every operation would mostly copy bytes that have not changed. Each delta records what the operation changed, along with enough information to restore the pointer, input position, output and instruction. History defaults to 100,000 operations and has a hard limit of 250,000. The oldest deltas are discarded first. Rewinding does not restore the execution budget, so rewinding and replaying cannot get around the session limit.
+
+The tests run the reference interpreter and an independent Brainfuck runner against the same compiled program. They should produce the same results for programs that follow Needle's rules. Tape out-of-bounds errors are tested with Needle itself because the other runner does not use Needle's checked pointer model.
+
+The debugger tests check that stepping and rewinding restore the cell, pointer, input position, output and instruction. History truncation is deterministic, and the execution budget remains spent when rewinding.
+
+```text
+Needle source:  poke 100
+Brainfuck:      +++++++++++++++++++++++++++++++++... (100 increments)
+One debugger step: cell[0] 0 → 100
+One rewind:        cell[0] 100 → 0
+```

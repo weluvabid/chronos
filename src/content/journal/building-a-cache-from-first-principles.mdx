@@ -1,0 +1,96 @@
+---
+id: building-a-cache-from-first-principles
+title: Building a Cache from First Principles
+type: deep-dive
+category: systems-engineering
+summary: Cachewise combines a logical byte budget, cost-aware retention, expiration
+  and per-key single-flight computation in one bounded JavaScript-agent cache.
+date: 2026-10-31
+project: cachewise
+tags:
+  - typescript
+  - caching
+  - systems
+  - concurrency
+  - project
+searchTerms:
+  - cache
+  - logical-memory-budget
+  - ttl
+  - single-flight
+  - cancellation
+  - invalidation
+draft: false
+kind: project
+projectDetails:
+  status: released
+  stack:
+    - TypeScript
+    - Node.js
+    - pnpm
+    - Vitest
+  order: 4
+  stackblitz: https://stackblitz.com/edit/cachewise?file=index.js
+  github: https://github.com/weluvabid/cachewise
+  resources:
+    - label: Architecture
+      url: https://github.com/weluvabid/cachewise/blob/main/docs/architecture.md
+    - label: Eviction and admission
+      url: https://github.com/weluvabid/cachewise/blob/main/docs/eviction-and-admission.md
+    - label: Concurrency
+      url: https://github.com/weluvabid/cachewise/blob/main/docs/concurrency.md
+    - label: Memory accounting
+      url: https://github.com/weluvabid/cachewise/blob/main/docs/memory-accounting.md
+    - label: Benchmark methodology
+      url: https://github.com/weluvabid/cachewise/blob/main/docs/benchmarking.md
+    - label: Live StackBlitz demo
+      url: https://stackblitz.com/edit/cachewise?file=index.js
+---
+
+import DiagramViewer from '@components/diagrams/DiagramViewer.svelte';
+
+Where all items have equal weight, LRU works just fine. We can keep the most recently used items and chuck out the cold stuff when we're full. In real scenarios, one item might be large but cheap to recompute, while another might be only a few hundred bytes and a pain to rebuild. Cachewise is a TypeScript cache that weights items based on their size and cost to recompute.
+
+The cache uses `maxBytes` to determine how much it can store. Each item uses the `estimateSize` function to determine how many bytes to account for. For `Uint8Array` values, `byteLength` gives us the actual size. For object graphs, we can choose how we want to weight items. The `maxBytes` limit is calculated from those estimates. Object headers, hidden slots, shared structure, closures and garbage-collection overhead will still contribute to process RSS.
+
+The TTL causes items to expire. They will be deleted using the `delete` method. Since there's no timer per item, we have to loop through the map using `pruneExpired()`. Expired items that aren't being used will remain in `bytesUsed` until they're touched or pruned. I didn't want a background clock.
+
+LRU remains as a basic policy. The item with the oldest `lastAccessedAt` will be the candidate. If there's space, the item will be added. By default, the policy will ask whether the candidate is worth evicting existing items.
+
+The score is calculated using a combination of recency, estimated frequency, cost to recompute and logical size:
+
+```text
+age     = max(0, now - lastAccessedAt)
+recency = 0.5 ^ (age / recencyHalfLife)
+reuse   = log2(1 + frequency)
+cost    = log2(1 + computeCost)
+score   = (recency × reuse × cost) / max(1, size)
+```
+
+The half-life is fixed at 60 seconds. That means recency is halved every 60 seconds. Using logarithms keeps an item with a very high cost or a very hot key from dominating the score. We divide by size so we favour items that can be reused per accounted byte. `computeCost` is a weight you provide. Cachewise will never time the factory. The score uses the result of `estimateSize` directly, so both values should use a consistent scale.
+
+Eviction and acceptance of the candidate are separate decisions. The existing items in the cache will be sorted by their score in ascending order. If the candidate has a positive score and is greater than or equal to every item planned for eviction, it will be accepted. The plan is made before any items are evicted. If the candidate isn't accepted, the cache will remain unchanged. If it's replacing an existing key, the existing value won't be counted towards capacity. It will only be disposed of once the candidate is accepted.
+
+If there's only one item to evict, it will be found with a scan. If there are multiple items to evict, the items will be sorted by their score and the candidate will be compared against that list. The eviction is greedy, so the lowest-scoring items will be evicted until enough space is freed. Evicting multiple items means we pay to sort them instead of maintaining a heap of scores.
+
+Frequency uses a Count-Min Sketch. By default, there are four rows with 8-bit counters. This keeps its size fixed. If we used a map of counters, its size would grow as more keys are added to the cache. The minimum of the counters for a key is used to calculate the estimate. The counters will saturate at 255 and will be halved every half-life. Collisions can cause overestimation. I didn't include a side table to correct collisions because that would create an unbounded structure. Object keys will go through a bounded identity table. Two local symbols with the same description can collide. The width of the sketch is determined by `maxTrackedKeys`. The logical size of the cache is determined by `maxBytes`.
+
+The `getOrCompute()` method will ensure only one request is made per key. Multiple callers will join onto one promise. Each caller can cancel their own wait. The factory will receive a separate shared signal. If one caller cancels, the others won't be affected. The last caller to cancel will abort the shared signal and the flight will be dropped. Cancellation is cooperative. If the factory doesn't honour the signal, it will continue to run. Cachewise can choose not to store the result, but any side effects the factory has already performed will remain.
+
+<DiagramViewer
+  client:visible
+  src="/diagrams/cachewise-single-flight.svg"
+  alt="Cachewise single-flight sequence: two callers share one factory; caller A aborts its wait while caller B receives the result."
+/>
+
+If `set` or `delete` is used while a flight is in progress, it will mark the flight as non-cacheable. This means a late factory won't overwrite the explicit value. The `clear()` method will increment the epoch and cancel any known flights. If the factory settles after a clear, it won't repopulate the cache. The promise the caller is waiting on will still settle with the factory's result or error. Invalidation only affects acceptance.
+
+Each cache instance is specific to one JavaScript agent. Workers will have their own instance and their own flight.
+
+The dispose and event callbacks will run synchronously. Any errors thrown by a listener will be caught. The optional error hook will also be protected. This means reporting an error won't interrupt a cache operation. The callback will still be called on the caller's turn. Don't do any I/O.
+
+There is more I want to explore here. The frequency sketch has fixed memory use, but its width and aging rate affect how well it tracks changing access patterns. It would be useful to try different settings against longer workloads and see when old frequency information should fade away.
+
+I would also like to compare the current admission rule with other ways of deciding whether a new value should enter the cache. Expiration could use a scheduled cleanup pass instead of relying on callers to invoke `pruneExpired()`.
+
+The next article looks at the benchmarks and what they can tell us about the policy.

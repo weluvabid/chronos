@@ -1,0 +1,46 @@
+---
+id: building-iris
+title: Building Iris as a Reusable UI Foundation
+type: build-log
+category: frontend-engineering
+summary: A record of extracting reusable interface primitives while preserving accessibility
+  and consistent behaviour.
+date: 2026-11-01
+project: iris
+tags:
+  - svelte
+  - design-systems
+  - components
+  - project
+searchTerms:
+  - svelte
+  - design-systems
+  - components
+draft: false
+kind: project
+projectDetails:
+  status: released
+  stack:
+    - Svelte
+    - TypeScript
+    - Tailwind CSS
+  github: https://github.com/weluvabid/iris
+  order: 10
+  resources:
+    - label: Component exports and composition patterns
+    - label: shadcn-svelte primitives and accessible interaction behaviour
+    - label: Theme-aware monochrome styling and separation of shared UI from product
+        branding
+    - label: Package build and published npm distribution
+    - label: Consuming projects demonstrating reuse
+---
+
+I was getting quite tired of having to recreate these buttons, dialogues and forms from scratch for each new project. I just didn’t care to set up shadcn-svelte, create tokens and ensure all of the components were consistent across projects. I wanted to reduce the amount of effort I had to put into this part of each project so I could spend my time actually creating.
+
+So I decided to turn Iris into a package. I would configure shadcn-svelte once, include my tokens and styles and then export these components. I can then install these components into my new project and focus on creating my demo/application.
+
+All of my projects can use the same components whilst having their own branding. Each project can have its own layout, themes and identity without needing to copy components between repositories.
+
+I wanted an easier way to improve Iris over time. Existing projects can stay on their current version whilst new projects will use the latest version. This means I can continue to improve the package without affecting existing projects.
+
+I will only add new components when needed and improve existing ones. I don’t want to create another UI framework. I just want a package that will help me with the boring parts of UI development so I can focus on making each project unique.

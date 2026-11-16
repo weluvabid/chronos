@@ -1,0 +1,54 @@
+---
+id: benchmarking-without-lying-to-yourself
+title: Benchmarking Cache Policies Without Lying to Yourself
+type: deep-dive
+category: systems-engineering
+summary: A deterministic benchmark compares Cachewise with LRU using weighted hit
+  ratio, throughput and batched latency while keeping the limits of synthetic workloads
+  explicit.
+date: 2026-11-13
+project: cachewise
+tags:
+  - benchmarking
+  - caching
+  - performance
+  - measurement
+searchTerms:
+  - weighted-hit-ratio
+  - scan-pollution
+  - skewed-workload
+  - byte-pressure
+  - microbenchmark
+draft: false
+kind: article
+---
+
+A cache benchmark is easy to bias. In Cachewise, I set it up so both policies see the same deterministic requests and logical capacity. Recency, recomputation cost and size pull in different directions.
+
+`computeCost` is passed in, and the expensive operation is not executed. This means the factory does not skew the time taken by the cache policy. A better weighted hit ratio will only translate into less work in the application if the actual recomputation cost is measured too.
+
+The benchmark uses three scenarios:
+
+- **Scan pollution.** A set of expensive hot items stays close to capacity while a large proportion of requests go to cheap, single-use keys. Are the items you want to keep being evicted by the scan traffic?
+- **Skewed expensive reuse.** A small part of the keyspace gets most of the requests. Those keys are expensive, and their sizes vary.
+- **Byte pressure.** A small number of expensive items compete with large, cheap items for the same byte budget.
+
+The clock is logical. Recency decay and sketch aging are not affected by the scheduler. The policies are rotated so neither one is always running first. Warm-up runs are not counted. The report includes the runtime, machine and all measured runs. The raw run is available as JSON. The CSV is there if you want to argue with the results in a notebook, and the Markdown gives a quick summary table.
+
+The first thing I look at is the weighted hit ratio. It is the total cost weight of items served by hits divided by the total cost weight of all requested items. That gives some context to the ordinary hit ratio: a hit on an expensive item saves more work than a hit on a cheap one. Throughput and batch p50/p95 are included too. These values are based on batch averages, so they give an indication of batch speed rather than the latency of individual operations. The eviction and rejection counts show whether items were evicted to make room or whether an incoming item was rejected.
+
+An example run is committed. It used Node.js 26.13.0 on an Apple M4 Max, with 100,000 operations, a 256 KiB logical budget, seven measured runs and two warm-up runs.
+
+| Workload               |    LRU | Cost-aware |
+| ---------------------- | -----: | ---------: |
+| Scan pollution         | 63.84% |     99.02% |
+| Skewed expensive reuse | 58.93% |     91.69% |
+| Byte pressure          | 80.94% |     99.44% |
+
+The cost-aware policy had a higher weighted hit ratio on all three workloads. Throughput was slower on the first two scenarios but faster for byte pressure.
+
+`maxBytes` is the cache's accounting budget. Process RSS also includes the runtime and object overhead. JIT, GC and machine load affect the timings, so only compare policies within the same run. GitHub-hosted runners are convenient, but noisy.
+
+To make a decision for your application, use a trace from that application and measure the factory itself, not just the cache bookkeeping.
+
+That is the next step for Cachewise too. I want to run it against real access traces, include the time spent rebuilding values, and see how the policies behave over longer runs as the workload changes. It would also be useful to compare results across different cache sizes and Node.js versions. The current numbers give me a repeatable starting point; application traces will show where the policy is actually useful.

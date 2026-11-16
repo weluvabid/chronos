@@ -1,0 +1,82 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '@layouts/BaseLayout.astro';
+import { Breadcrumb } from '@weluvabid/iris/components';
+import JournalEntryList from '@components/journal/JournalEntryList.svelte';
+import JournalEntryCard from '@components/cards/JournalEntryCard.svelte';
+import { entryHref, withBase } from '@lib/journal';
+import { serializeJournalEntries } from '@lib/journal-list/serialize-entry';
+import { groupEntriesByTag } from '@lib/journal-tags';
+import { JOURNAL_PAGE_SIZE, paginateItems } from '@lib/journal-pagination';
+import { INTENTS, pluralize } from '@lib/content-text';
+import { getJournalSeriesPartCount } from '@lib/journal-series-navigation';
+
+export async function getStaticPaths() {
+  const entries = (
+    await getCollection('journal', ({ data }) => !data.draft && data.kind === 'article')
+  ).sort(
+    (left, right) =>
+      right.data.date.valueOf() - left.data.date.valueOf() ||
+      left.data.id.localeCompare(right.data.id),
+  );
+
+  return [...groupEntriesByTag(entries).entries()].map(([slug, group]) => ({
+    params: { slug },
+    props: { slug, label: group.label, entries: group.entries },
+  }));
+}
+
+const { slug, label, entries } = Astro.props;
+const allJournalEntries = await getCollection(
+  'journal',
+  ({ data }) => !data.draft && data.kind === 'article',
+);
+const { items: firstPage, nextPage } = paginateItems(entries, 1);
+const initialEntries = serializeJournalEntries(
+  firstPage,
+  (entry) => entryHref(entry.data.id),
+  (seriesId) => getJournalSeriesPartCount(allJournalEntries, seriesId),
+);
+const serializedEntries = serializeJournalEntries(
+  entries,
+  (entry) => entryHref(entry.data.id),
+  (seriesId) => getJournalSeriesPartCount(allJournalEntries, seriesId),
+);
+const nextPageUrl =
+  nextPage === null ? null : withBase(`/journal/data/tag/${slug}/${nextPage}.json`);
+---
+
+<BaseLayout title={`Tagged “${label}” — Writings`} description={`Writings tagged ${label}.`}>
+  <Breadcrumb.Root class="mb-8"
+    ><Breadcrumb.List
+      ><Breadcrumb.Item
+        ><Breadcrumb.Link href={withBase('/journal/')}>Writings</Breadcrumb.Link></Breadcrumb.Item
+      ><Breadcrumb.Separator /><Breadcrumb.Item
+        ><Breadcrumb.Page>#{label}</Breadcrumb.Page></Breadcrumb.Item
+      ></Breadcrumb.List
+    ></Breadcrumb.Root
+  >
+  <p class="mb-10 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+    {pluralize(entries.length, INTENTS.entry)}
+  </p>
+  <JournalEntryList
+    client:load
+    initialEntries={initialEntries}
+    nextPageUrl={nextPageUrl}
+    ariaLabel={`Writings tagged ${label}`}
+  />
+  <noscript>
+    <ol class="mt-3 space-y-3" aria-label={`Entries tagged ${label}`}>
+      {
+        entries.slice(JOURNAL_PAGE_SIZE).map((_, index) => (
+          <li>
+            <JournalEntryCard
+              entry={serializedEntries[index + JOURNAL_PAGE_SIZE]}
+              index={index + JOURNAL_PAGE_SIZE}
+            />
+          </li>
+        ))
+      }
+    </ol>
+  </noscript>
+</BaseLayout>

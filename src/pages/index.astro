@@ -1,134 +1,31 @@
 ---
-import { getCollection } from 'astro:content';
 import BaseLayout from '@layouts/BaseLayout.astro';
-import { Button } from '@weluvabid/iris/components';
-import { withBase, entryHref } from '@lib/journal';
-import ProjectCard from '@components/cards/ProjectCard.svelte';
-import JournalEntryCard from '@components/cards/JournalEntryCard.svelte';
-import { getJournalSeriesPartCount } from '@lib/journal-series-navigation';
-import {
-  assertFeaturedProjectCount,
-  FEATURED_PROJECT_COUNT,
-  rankProjects,
-  isProjectEntry,
-} from '@lib/project-ranking';
-
-const allEntries = await getCollection('journal', ({ data }) => !data.draft);
-const entries = [...allEntries]
-  .filter((entry) => entry.data.kind === 'article')
-  .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
-const latestEntries = entries.slice(0, 5);
-const publishedProjects = allEntries
-  .filter((entry) => !entry.data.draft && entry.data.kind === 'project')
-  .filter(isProjectEntry);
-assertFeaturedProjectCount(publishedProjects);
-const projects = rankProjects(publishedProjects);
-const selectedProjects = projects.slice(0, FEATURED_PROJECT_COUNT);
 ---
 
 <BaseLayout
-  title="Journal — What I build and how I think."
-  description="Software projects, engineering notes and technical deep dives."
+  title="Chronos — Browser time coordination engine"
+  description="A centralized browser time coordination engine."
 >
-  <section class="mx-auto max-w-3xl py-10 sm:py-14">
-    <p class="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-      What I build and how I think
-    </p>
-    <h1 class="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
-      Abid <span class="text-muted-foreground">— Software Engineer</span>
-    </h1>
-    <p class="mt-5 max-w-2xl text-pretty text-base leading-8 text-muted-foreground sm:text-lg">
-      I build systems, developer tools, runtimes and thoughtful frontend software. Explore the
-      projects I've made and the engineering decisions behind them.{' '}
-      <a
-        href={withBase('/about/')}
-        class="font-medium text-foreground underline decoration-border underline-offset-4 transition-colors hover:decoration-foreground focus-visible:rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
-      >
-        A little more about me.
-      </a>
-    </p>
-    <div class="mt-7 flex flex-wrap gap-3">
-      <Button.Root href={withBase('/projects/')} variant="default">Explore projects</Button.Root>
-      <Button.Root href={withBase('/journal/')} variant="outline">Read writings</Button.Root>
+  <section class="mx-auto flex max-w-3xl flex-col gap-6 py-12 sm:py-20">
+    <div class="flex flex-wrap items-center gap-2">
+      <span class="rounded-full border border-border px-3 py-1 text-xs font-medium text-muted-foreground">
+        In development
+      </span>
+      <span class="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+        Browser systems engineering
+      </span>
+    </div>
+    <div class="space-y-4">
+      <h1 class="text-4xl font-semibold tracking-tight sm:text-6xl">Time, coordinated.</h1>
+      <p class="max-w-2xl text-pretty text-base leading-8 text-muted-foreground sm:text-lg">
+        Chronos is an experiment in coordinating large numbers of browser timers without making
+        callback frequency the source of truth.
+      </p>
+    </div>
+    <div class="flex flex-wrap gap-3 text-sm text-muted-foreground">
+      <span class="rounded-full border border-border px-3 py-1.5">Timestamp-based timekeeping</span>
+      <span class="rounded-full border border-border px-3 py-1.5">Centralized scheduling</span>
+      <span class="rounded-full border border-border px-3 py-1.5">Web Worker runtime</span>
     </div>
   </section>
-
-  <div data-keyboard-navigation="primary">
-    <section class="mx-auto mt-4 max-w-5xl py-10 sm:py-14" aria-labelledby="projects-heading">
-      <div class="mb-8 flex items-end justify-between gap-4">
-        <div>
-          <p class="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-            What i Build
-          </p>
-          <h2 id="projects-heading" class="mt-2 text-2xl font-semibold tracking-tight">Projects</h2>
-        </div>
-        <Button.Root variant="link" href={withBase('/projects/')}>All projects</Button.Root>
-      </div>
-      <div class="grid items-stretch gap-3 sm:grid-cols-2">
-        {
-          selectedProjects.map((project, index) => (
-            <ProjectCard
-              client:load
-              project={{
-                id: project.data.project!,
-                title: project.data.title,
-                summary: project.data.summary,
-                status: project.data.projectDetails!.status,
-                order: index + 1,
-                tags: project.data.tags.filter((tag) => tag !== 'project'),
-              }}
-              href={entryHref(project.data.id)}
-              number={index + 1}
-              class="h-full"
-            />
-          ))
-        }
-      </div>
-    </section>
-
-    <section class="mx-auto mt-4 max-w-5xl pb-8" aria-labelledby="featured-heading">
-      <div class="mb-8 flex items-end justify-between gap-4">
-        <div>
-          <p class="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-            How I think
-          </p>
-          <h2 id="featured-heading" class="mt-2 text-2xl font-semibold tracking-tight">Writings</h2>
-        </div>
-        <Button.Root variant="link" href={withBase('/journal/')}>All writings</Button.Root>
-      </div>
-      <ol class="space-y-3" aria-label="Recent journal entries">
-        {
-          latestEntries.map((entry, index) => (
-            <li>
-              <JournalEntryCard
-                client:load
-                entry={{
-                  id: entry.data.id,
-                  title: entry.data.title,
-                  summary: entry.data.summary,
-                  type: entry.data.type,
-                  date: entry.data.date.toISOString(),
-                  dateLabel: entry.data.date.toLocaleDateString('en', {
-                    dateStyle: 'medium',
-                    timeZone: 'UTC',
-                  }),
-                  tags: entry.data.tags,
-                  ...(entry.data.series
-                    ? {
-                        series: {
-                          part: entry.data.series.part,
-                          totalParts: getJournalSeriesPartCount(entries, entry.data.series.id),
-                        },
-                      }
-                    : {}),
-                  href: entryHref(entry.data.id),
-                }}
-                index={index + selectedProjects.length}
-              />
-            </li>
-          ))
-        }
-      </ol>
-    </section>
-  </div>
 </BaseLayout>

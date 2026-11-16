@@ -1,7 +1,6 @@
 <script lang="ts">
   import { SiteFooter, Button, Tooltip } from '@weluvabid/iris/components';
   import { SiGithub } from '@weluvabid/iris/simple-icons';
-  import { withBase } from '@lib/journal';
   import GhostMark from '@components/brand/GhostMark.svelte';
 </script>
 
@@ -9,10 +8,10 @@
   <SiteFooter>
     <a
       class="ghost-link inline-flex size-10 items-center justify-center text-foreground no-underline"
-      href={withBase('/')}
-      aria-label="Journal home"
+      href="/"
+      aria-label="Chronos home"
     >
-      <GhostMark class="h-7 w-auto" gradientId="footer-ghost-fill" />
+      <GhostMark class="h-7 w-auto" gradientId="chronos-footer-ghost" />
     </a>
     <Tooltip.Root>
       <Tooltip.Trigger>
@@ -22,10 +21,10 @@
             variant="ghost"
             size="icon"
             class="rounded-full"
-            href="https://github.com/weluvabid/journal"
+            href="https://github.com/weluvabid/chronos"
             target="_blank"
             rel="noopener noreferrer"
-            aria-label="Journal on GitHub (opens in a new tab)"
+            aria-label="Chronos on GitHub (opens in a new tab)"
           >
             <SiGithub class="size-6" aria-hidden="true" />
           </Button.Root>

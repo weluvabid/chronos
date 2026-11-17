@@ -368,7 +368,7 @@
     <div>
       <p class="text-xs font-semibold uppercase tracking-[0.18em]">
         Live timer matrix {#if summary !== null}
-          ({matrixColumns} columns)
+          [{matrixColumns} column(s)]
         {/if}
       </p>
       <p class="mt-1 text-xs text-muted-foreground">100,000 independent timers · Canvas-rendered</p>

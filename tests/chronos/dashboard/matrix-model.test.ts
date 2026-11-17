@@ -28,13 +28,19 @@ test('getTimerRecord resolves started-at records against a contiguous page', () 
 });
 
 test('getVisibleTimerRange calculates viewport handles with bounded overscan', () => {
-  assert.deepEqual(getVisibleTimerRange(MATRIX_ROW_HEIGHT, MATRIX_ROW_HEIGHT, 10, 1_000, 1), { first: 0, last: 11 });
+  assert.deepEqual(getVisibleTimerRange(MATRIX_ROW_HEIGHT, MATRIX_ROW_HEIGHT, 10, 1_000, 1), {
+    first: 0,
+    last: 11,
+  });
   assert.deepEqual(getVisibleTimerRange(0, MATRIX_ROW_HEIGHT, 10, 100, 4), { first: 0, last: 19 });
   assert.deepEqual(getVisibleTimerRange(0, 18, 0, 0), { first: 0, last: 0 });
 });
 
 test('getVisibleMatrixRows calculates visible rows and overscan without a virtualizer', () => {
-  assert.deepEqual(getVisibleMatrixRows(MATRIX_ROW_HEIGHT * 2, MATRIX_ROW_HEIGHT * 2, 10, 1), { first: 1, last: 4 });
+  assert.deepEqual(getVisibleMatrixRows(MATRIX_ROW_HEIGHT * 2, MATRIX_ROW_HEIGHT * 2, 10, 1), {
+    first: 1,
+    last: 4,
+  });
   assert.deepEqual(getVisibleMatrixRows(0, MATRIX_ROW_HEIGHT, 10, 4), { first: 0, last: 4 });
   assert.deepEqual(getVisibleMatrixRows(10_000, MATRIX_ROW_HEIGHT, 10, 2), { first: 7, last: 9 });
   assert.deepEqual(getVisibleMatrixRows(0, 18, 0), { first: 0, last: -1 });
@@ -60,7 +66,6 @@ test('timerName is deterministic and distributes synthetic workload labels', () 
   assert.equal(timerName(12), 'Cache Reconciliation');
   assert.throws(() => timerName(-1), RangeError);
 });
-
 
 test('timerStatus assigns stable synthetic states without changing timer records', () => {
   assert.equal(timerStatus(0), 'running');

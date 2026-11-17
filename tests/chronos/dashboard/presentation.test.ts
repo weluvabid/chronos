@@ -1,6 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { departmentForAgent, elapsedAt, formatDuration, callStateLabel } from '../../../src/lib/chronos/dashboard/presentation.ts';
+import {
+  departmentForAgent,
+  elapsedAt,
+  formatDuration,
+  callStateLabel,
+} from '../../../src/lib/chronos/dashboard/presentation.ts';
 import { CallState } from '../../../src/lib/chronos/simulation/call-centre.ts';
 
 test('elapsed display derives duration from the call start timestamp', () => {

@@ -4,7 +4,8 @@
   import { Moon, Sun } from '@weluvabid/iris/lucide';
   import { SiGithub } from '@weluvabid/iris/simple-icons';
   import { getInitialTheme, toggleTheme } from '@weluvabid/iris/theme';
-  import GhostMark from '@components/brand/GhostMark.svelte';
+  import ghostMark from '../../../brand/me/brand/mark.svg?url';
+  import ghostMarkDark from '../../../brand/me/brand/mark-dark.svg?url';
 
   let theme = $state<'light' | 'dark'>('light');
   let hydrated = $state(false);
@@ -16,6 +17,7 @@
 
   function handleThemeToggle(): void {
     theme = toggleTheme(theme);
+
     document.dispatchEvent(new CustomEvent('chronos:themechange', { detail: { theme } }));
   }
 </script>
@@ -23,7 +25,8 @@
 <Tooltip.Provider delayDuration={300}>
   <SiteHeader>
     <span class="inline-flex min-h-10 shrink-0 items-center" aria-hidden="true">
-      <GhostMark class="h-8 w-[34.56px]" gradientId="chronos-header-ghost" />
+      <img src={ghostMark} alt="" class="block h-8 w-[34.56px] dark:hidden" />
+      <img src={ghostMarkDark} alt="" class="hidden h-8 w-[34.56px] dark:block" />
     </span>
 
     <nav class="flex shrink-0 items-center gap-1" aria-label="Primary navigation">
@@ -36,12 +39,18 @@
                 variant="ghost"
                 size="icon"
                 class={hydrated ? 'rounded-full' : 'invisible rounded-full'}
-                aria-label={hydrated ? (theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme') : 'Theme'}
+                aria-label={hydrated
+                  ? theme === 'dark'
+                    ? 'Switch to light theme'
+                    : 'Switch to dark theme'
+                  : 'Theme'}
                 aria-pressed={hydrated ? theme === 'dark' : undefined}
                 onclick={handleThemeToggle}
               >
                 {#if hydrated}
-                  {#if theme === 'dark'}<Sun aria-hidden="true" />{:else}<Moon aria-hidden="true" />{/if}
+                  {#if theme === 'dark'}<Sun aria-hidden="true" />{:else}<Moon
+                      aria-hidden="true"
+                    />{/if}
                 {/if}
               </Button.Root>
             {/snippet}
@@ -68,7 +77,6 @@
           <Tooltip.Content>GitHub repository</Tooltip.Content>
         </Tooltip.Root>
       </div>
-
     </nav>
   </SiteHeader>
 </Tooltip.Provider>

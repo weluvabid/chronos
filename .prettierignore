@@ -4,3 +4,4 @@ dist/
 .pnpm-store/
 coverage/
 pnpm-lock.yaml
+brand/**

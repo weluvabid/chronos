@@ -10,6 +10,10 @@ const clock = new ManualClock(1_000);
 const engine = new ChronosEngine(clock);
 const simulation = new TimerMatrixSimulation(engine, 0x00c0ffee);
 
+/**
+ * @template T
+ * @param {() => T} operation
+ */
 function measure(operation) {
   const startedAt = performance.now();
   const result = operation();
@@ -21,6 +25,7 @@ function measure(operation) {
 }
 
 const initialization = measure(() => simulation.initialize(count));
+
 clock.advance(1_000);
 
 const registryWindow = measure(() => engine.timers.windowBuffers(windowOffset, windowLimit));
@@ -32,27 +37,33 @@ const elapsedWindow = measure(() => {
 });
 const metrics = engine.metrics();
 
-process.stdout.write(`${JSON.stringify({
-  environment: {
-    runtime: process.version,
-    platform: process.platform,
-    arch: process.arch,
-  },
-  workload: {
-    count,
-    seed: simulation.seed,
-  },
-  timings: {
-    initializeMs: initialization.durationMs,
-    registryWindowMs: registryWindow.durationMs,
-    simulationWindowMs: simulationWindow.durationMs,
-    elapsedWindowMs: elapsedWindow.durationMs,
-  },
-  metrics,
-  windows: {
-    records: simulationWindow.result.startedAt.length,
-    transferredBytes: simulationWindow.result.startedAt.byteLength,
-    elapsedSamples: elapsedWindow.result.length,
-  },
-  registryTypedArrayBytes: metrics.capacity * Float64Array.BYTES_PER_ELEMENT,
-}, null, 2)}\n`);
+process.stdout.write(
+  `${JSON.stringify(
+    {
+      environment: {
+        runtime: process.version,
+        platform: process.platform,
+        arch: process.arch,
+      },
+      workload: {
+        count,
+        seed: simulation.seed,
+      },
+      timings: {
+        initializeMs: initialization.durationMs,
+        registryWindowMs: registryWindow.durationMs,
+        simulationWindowMs: simulationWindow.durationMs,
+        elapsedWindowMs: elapsedWindow.durationMs,
+      },
+      metrics,
+      windows: {
+        records: simulationWindow.result.startedAt.length,
+        transferredBytes: simulationWindow.result.startedAt.byteLength,
+        elapsedSamples: elapsedWindow.result.length,
+      },
+      registryTypedArrayBytes: metrics.capacity * Float64Array.BYTES_PER_ELEMENT,
+    },
+    null,
+    2,
+  )}\n`,
+);

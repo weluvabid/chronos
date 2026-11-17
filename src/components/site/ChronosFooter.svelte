@@ -1,7 +1,8 @@
 <script lang="ts">
   import { SiteFooter, Button, Tooltip } from '@weluvabid/iris/components';
   import { SiGithub } from '@weluvabid/iris/simple-icons';
-  import GhostMark from '@components/brand/GhostMark.svelte';
+  import ghostMark from '../../../brand/me/brand/mark.svg?url';
+  import ghostMarkDark from '../../../brand/me/brand/mark-dark.svg?url';
 </script>
 
 <Tooltip.Provider delayDuration={300}>
@@ -11,7 +12,8 @@
       href="/"
       aria-label="Chronos home"
     >
-      <GhostMark class="h-7 w-auto" gradientId="chronos-footer-ghost" />
+      <img src={ghostMark} alt="" class="block h-7 w-auto dark:hidden" />
+      <img src={ghostMarkDark} alt="" class="hidden h-7 w-auto dark:block" />
     </a>
     <Tooltip.Root>
       <Tooltip.Trigger>

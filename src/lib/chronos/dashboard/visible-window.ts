@@ -20,8 +20,12 @@ export interface VisibleWindowControllerOptions<T> {
 }
 
 function coversRange<T>(page: WindowPage<T> | null, range: VisibleRange): boolean {
-  return page !== null && page.records.length > 0 && range.first >= page.offset &&
-    range.last < page.offset + page.records.length;
+  return (
+    page !== null &&
+    page.records.length > 0 &&
+    range.first >= page.offset &&
+    range.last < page.offset + page.records.length
+  );
 }
 
 /** Coalesces rapid viewport range changes into bounded worker queries. */
@@ -37,16 +41,22 @@ export class VisibleWindowController<T> {
   constructor(options: VisibleWindowControllerOptions<T>) {
     this.#options = options;
     this.#maxLimit = options.maxLimit ?? 10_000;
+
     if (!Number.isSafeInteger(this.#maxLimit) || this.#maxLimit < 1 || this.#maxLimit > 10_000) {
       throw new RangeError('Maximum window size must be between 1 and 10000.');
     }
   }
 
   request(force = false): Promise<void> {
-    if (this.#closed) return Promise.resolve();
+    if (this.#closed) {
+      return Promise.resolve();
+    }
 
     const range = this.#normalizeRange(this.#options.getRange());
-    if (!force && !this.#running && this.#options.hasCachedRange(range)) return Promise.resolve();
+
+    if (!force && !this.#running && this.#options.hasCachedRange(range)) {
+      return Promise.resolve();
+    }
 
     this.#desiredRange = range;
     this.#pending = true;
@@ -64,7 +74,12 @@ export class VisibleWindowController<T> {
   }
 
   #normalizeRange(range: VisibleRange): VisibleRange {
-    if (!Number.isSafeInteger(range.first) || !Number.isSafeInteger(range.last) || range.first < 0 || range.last < range.first) {
+    if (
+      !Number.isSafeInteger(range.first) ||
+      !Number.isSafeInteger(range.last) ||
+      range.first < 0 ||
+      range.last < range.first
+    ) {
       throw new RangeError('Visible range must contain valid non-negative indices.');
     }
 
@@ -77,19 +92,28 @@ export class VisibleWindowController<T> {
     try {
       while (this.#pending && !this.#closed) {
         const requested = this.#desiredRange;
+
         this.#pending = false;
+
         const limit = requested.last - requested.first + 1;
         const page = await this.#options.query(requested.first, limit);
 
-        if (this.#closed) return;
+        if (this.#closed) {
+          return;
+        }
 
         const expectedTotal = this.#options.getExpectedTotal();
+
         if (expectedTotal !== null && page.total !== expectedTotal) {
-          throw new Error(`Worker returned ${page.total} records; simulation reports ${expectedTotal}.`);
+          throw new Error(
+            `Worker returned ${page.total} records; simulation reports ${expectedTotal}.`,
+          );
         }
 
         this.#pending = false;
+
         const latestRange = this.#normalizeRange(this.#options.getRange());
+
         if (page.records.length === 0 && latestRange.first >= page.total) {
           this.#options.onPage(page);
           continue;
@@ -100,7 +124,9 @@ export class VisibleWindowController<T> {
           continue;
         }
 
-        if (this.#options.hasCachedRange(latestRange)) continue;
+        if (this.#options.hasCachedRange(latestRange)) {
+          continue;
+        }
 
         this.#desiredRange = latestRange;
         this.#pending = true;
@@ -108,11 +134,16 @@ export class VisibleWindowController<T> {
     } catch (error) {
       this.#pending = false;
 
-      if (!this.#closed) this.#options.onError(error);
+      if (!this.#closed) {
+        this.#options.onError(error);
+      }
     } finally {
       this.#running = false;
       this.#drainPromise = null;
-      if (this.#pending && !this.#closed) void this.request(true);
+
+      if (this.#pending && !this.#closed) {
+        void this.request(true);
+      }
     }
   }
 }

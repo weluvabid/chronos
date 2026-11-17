@@ -47,8 +47,12 @@ export class DeadlineQueue {
     this.#payloads = new Uint32Array(initialCapacity);
   }
 
-  get size(): number { return this.#size; }
-  get nextDeadline(): number | null { return this.#size === 0 ? null : readValue(this.#deadlines, 0, 'next deadline'); }
+  get size(): number {
+    return this.#size;
+  }
+  get nextDeadline(): number | null {
+    return this.#size === 0 ? null : readValue(this.#deadlines, 0, 'next deadline');
+  }
 
   schedule(deadline: number, kind: ScheduledEventKind, handle: TimerHandle, payload = 0): number {
     if (!Number.isFinite(deadline)) {
@@ -59,7 +63,9 @@ export class DeadlineQueue {
       throw new ChronosError(`Unsupported event kind: ${kind}.`, 'UNSUPPORTED_EVENT_KIND');
     }
 
-    if (!Number.isSafeInteger(handle) || handle < 0 || handle > 0xffffffff) throw new RangeError('Timer identifier is invalid.');
+    if (!Number.isSafeInteger(handle) || handle < 0 || handle > 0xffffffff) {
+      throw new RangeError('Timer identifier is invalid.');
+    }
 
     if (!Number.isSafeInteger(payload) || payload < 0 || payload > 0xffffffff) {
       throw new RangeError('Payload must be uint32.');
@@ -108,7 +114,11 @@ export class DeadlineQueue {
 
     const due: ScheduledEvent[] = [];
 
-    while (this.#size > 0 && readValue(this.#deadlines, 0, 'next deadline') <= now && due.length < limit) {
+    while (
+      this.#size > 0 &&
+      readValue(this.#deadlines, 0, 'next deadline') <= now &&
+      due.length < limit
+    ) {
       due.push(this.#removeAt(0));
     }
 
@@ -180,7 +190,11 @@ export class DeadlineQueue {
     const deadlineA = readValue(this.#deadlines, a, 'deadline');
     const deadlineB = readValue(this.#deadlines, b, 'deadline');
 
-    return deadlineA < deadlineB || (deadlineA === deadlineB && readValue(this.#ids, a, 'event id') < readValue(this.#ids, b, 'event id'));
+    return (
+      deadlineA < deadlineB ||
+      (deadlineA === deadlineB &&
+        readValue(this.#ids, a, 'event id') < readValue(this.#ids, b, 'event id'))
+    );
   }
 
   #swap(a: number, b: number): void {
@@ -226,7 +240,9 @@ export class DeadlineQueue {
     this.#payloads[index] = event.payload;
   }
 
-  #parent(index: number): number { return (index - 1) >>> 1; }
+  #parent(index: number): number {
+    return (index - 1) >>> 1;
+  }
 
   #ensureCapacity(): void {
     if (this.#size < this.#deadlines.length) {
@@ -235,7 +251,7 @@ export class DeadlineQueue {
 
     const next = this.#deadlines.length * 2;
     const grow = <T extends Float64Array | Uint32Array | Uint8Array>(source: T): T => {
-      const target = new (source.constructor as { new(length: number): T })(next);
+      const target = new (source.constructor as { new (length: number): T })(next);
 
       target.set(source);
 

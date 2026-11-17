@@ -46,13 +46,20 @@ export function installWorkerRuntime(port: WorkerPort): void {
 
     for (const event of events) {
       try {
-        if (!engine.timers.has(event.handle) || Number.isNaN(engine.timers.startedAt(event.handle))) {
+        if (
+          !engine.timers.has(event.handle) ||
+          Number.isNaN(engine.timers.startedAt(event.handle))
+        ) {
           throw new ChronosError('Scheduled event references an inactive call.', 'TIMER_INACTIVE');
         }
+
         validEvents.push(event);
       } catch (error) {
         const code = error instanceof ChronosError ? error.code : 'RUNTIME_ERROR';
-        const message = error instanceof Error ? error.message : 'A scheduled event referenced an invalid timer handle.';
+        const message =
+          error instanceof Error
+            ? error.message
+            : 'A scheduled event referenced an invalid timer handle.';
         const current = invalidCounts.get(code);
 
         if (current === undefined) {
@@ -84,7 +91,10 @@ export function installWorkerRuntime(port: WorkerPort): void {
       switch (request.type) {
         case 'CREATE_TIMER': {
           const handle = engine.createTimer();
-          if (request.startImmediately) engine.start(handle);
+
+          if (request.startImmediately) {
+            engine.start(handle);
+          }
 
           respond({ version: 1, requestId: request.requestId, type: 'TIMER_CREATED', handle });
           break;
@@ -95,7 +105,11 @@ export function installWorkerRuntime(port: WorkerPort): void {
           break;
         }
         case 'SCHEDULE_DEADLINE': {
-          const eventId = engine.scheduleDeadline(request.handle, clock.now() + request.delayMs, request.payload ?? 0);
+          const eventId = engine.scheduleDeadline(
+            request.handle,
+            clock.now() + request.delayMs,
+            request.payload ?? 0,
+          );
 
           respond({ version: 1, requestId: request.requestId, type: 'ACK', result: eventId });
           scheduleNextWakeup();
@@ -110,16 +124,25 @@ export function installWorkerRuntime(port: WorkerPort): void {
         }
         case 'QUERY_WINDOW': {
           if (simulation === null) {
-            throw new Error('Cannot query simulation records before the simulation has been initialized.');
+            throw new Error(
+              'Cannot query simulation records before the simulation has been initialized.',
+            );
           }
 
           const window = simulation.windowBuffers(request.offset, request.limit);
 
-          respond({ version: 1, requestId: request.requestId, type: 'WINDOW', ...window }, [window.startedAt.buffer]);
+          respond({ version: 1, requestId: request.requestId, type: 'WINDOW', ...window }, [
+            window.startedAt.buffer,
+          ]);
           break;
         }
         case 'METRICS':
-          respond({ version: 1, requestId: request.requestId, type: 'METRICS', metrics: engine.metrics() });
+          respond({
+            version: 1,
+            requestId: request.requestId,
+            type: 'METRICS',
+            metrics: engine.metrics(),
+          });
           break;
         case 'LOAD_SIMULATION': {
           if (simulation !== null) {
@@ -149,26 +172,38 @@ export function installWorkerRuntime(port: WorkerPort): void {
         version: 1,
         requestId: request.requestId,
         type: 'ERROR',
-        code: error && typeof error === 'object' && 'code' in error ? String(error.code) : 'WORKER_REQUEST_FAILED',
+        code:
+          error && typeof error === 'object' && 'code' in error
+            ? String(error.code)
+            : 'WORKER_REQUEST_FAILED',
         message: error instanceof Error ? error.message : 'Unknown worker failure.',
       });
     }
   };
   const applyTimerAction = (action: string, handle: TimerHandle): void => {
     switch (action) {
-      case 'start': engine.start(handle);
+      case 'start':
+        engine.start(handle);
 
-      return;
-      case 'clear': engine.clear(handle);
+        return;
+      case 'clear':
+        engine.clear(handle);
 
-      return;
-      default: throw new Error(`Unsupported timer action: ${action}.`);
+        return;
+      default:
+        throw new Error(`Unsupported timer action: ${action}.`);
     }
   };
 
   port.onmessage = (event: MessageEvent<unknown>): void => {
     if (!isWorkerRequest(event.data)) {
-      respond({ version: 1, requestId: 0, type: 'ERROR', code: 'INVALID_PROTOCOL_MESSAGE', message: 'Worker received a malformed or unsupported protocol message.' });
+      respond({
+        version: 1,
+        requestId: 0,
+        type: 'ERROR',
+        code: 'INVALID_PROTOCOL_MESSAGE',
+        message: 'Worker received a malformed or unsupported protocol message.',
+      });
 
       return;
     }

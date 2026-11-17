@@ -1,4 +1,8 @@
-import { CallState, type CallRecord, type CallState as CallStateValue } from '../simulation/call-centre.ts';
+import {
+  CallState,
+  type CallRecord,
+  type CallState as CallStateValue,
+} from '../simulation/call-centre.ts';
 
 const DEPARTMENTS = ['Support', 'Billing', 'Retention', 'Technical'] as const;
 
@@ -29,9 +33,13 @@ export function departmentForAgent(agentIndex: number): string {
 
 export function callStateLabel(state: CallStateValue): string {
   switch (state) {
-    case CallState.OnCall: return 'On call';
-    case CallState.OnHold: return 'On hold';
-    case CallState.Available: return 'Available';
-    default: throw new Error(`Unknown call state: ${state}.`);
+    case CallState.OnCall:
+      return 'On call';
+    case CallState.OnHold:
+      return 'On hold';
+    case CallState.Available:
+      return 'Available';
+    default:
+      throw new Error(`Unknown call state: ${state}.`);
   }
 }

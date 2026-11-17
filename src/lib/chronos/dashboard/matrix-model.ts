@@ -14,9 +14,17 @@ export function timerStatus(handle: number): TimerStatus {
   if (!Number.isSafeInteger(handle) || handle < 0) {
     throw new RangeError('Timer handle must be a non-negative safe integer.');
   }
+
   const bucket = handle % 20;
-  if (bucket < 14) return 'running';
-  if (bucket < 17) return 'paused';
+
+  if (bucket < 14) {
+    return 'running';
+  }
+
+  if (bucket < 17) {
+    return 'paused';
+  }
+
   return 'degraded';
 }
 
@@ -24,9 +32,15 @@ export function getMatrixColumns(viewportWidth: number): number {
   if (!Number.isFinite(viewportWidth) || viewportWidth <= 0) {
     throw new RangeError('Viewport width must be a finite positive number.');
   }
-  if (viewportWidth >= 1_200) return 4;
-  if (viewportWidth >= 900) return 4;
-  if (viewportWidth >= 600) return 2;
+
+  if (viewportWidth >= 900) {
+    return 4;
+  }
+
+  if (viewportWidth >= 600) {
+    return 2;
+  }
+
   return 1;
 }
 
@@ -39,7 +53,6 @@ export interface VisibleRange {
   readonly first: number;
   readonly last: number;
 }
-
 
 const WORKLOAD_NAMES = [
   'Cache Reconciliation',
@@ -61,7 +74,9 @@ export function timerName(handle: number): string {
   if (!Number.isSafeInteger(handle) || handle < 0) {
     throw new RangeError('Timer handle must be a non-negative safe integer.');
   }
+
   const workload = WORKLOAD_NAMES[handle % WORKLOAD_NAMES.length];
+
   return workload;
 }
 
@@ -69,6 +84,7 @@ export function timerId(handle: number): string {
   if (!Number.isSafeInteger(handle) || handle < 0) {
     throw new RangeError('Timer handle must be a non-negative safe integer.');
   }
+
   return `TMR-${String(handle + 1).padStart(6, '0')}`;
 }
 
@@ -78,6 +94,7 @@ export function getTimerRecord(
   handle: number,
 ): TimerRecord | undefined {
   const localIndex = handle - windowOffset;
+
   return localIndex >= 0 && localIndex < records.length ? records[localIndex] : undefined;
 }
 
@@ -92,13 +109,19 @@ export function getVisibleTimerRange(
   if (!Number.isSafeInteger(columns) || columns < 1) {
     throw new RangeError('Matrix columns must be a positive safe integer.');
   }
-  if (timerCount <= 0 || rowCount <= 0) return { first: 0, last: 0 };
+
+  if (timerCount <= 0 || rowCount <= 0) {
+    return { first: 0, last: 0 };
+  }
+
   if (!Number.isFinite(scrollTop) || scrollTop < 0) {
     throw new RangeError('Scroll offset must be a finite non-negative number.');
   }
+
   if (!Number.isFinite(viewportHeight) || viewportHeight <= 0) {
     throw new RangeError('Viewport height must be a finite positive number.');
   }
+
   if (!Number.isSafeInteger(overscan) || overscan < 0) {
     throw new RangeError('Overscan must be a non-negative safe integer.');
   }
@@ -123,13 +146,18 @@ export function getVisibleMatrixRows(
   rowCount: number,
   overscan = 4,
 ): MatrixRowRange {
-  if (rowCount <= 0) return { first: 0, last: -1 };
+  if (rowCount <= 0) {
+    return { first: 0, last: -1 };
+  }
+
   if (!Number.isFinite(scrollTop) || scrollTop < 0) {
     throw new RangeError('Scroll offset must be a finite non-negative number.');
   }
+
   if (!Number.isFinite(viewportHeight) || viewportHeight <= 0) {
     throw new RangeError('Viewport height must be a finite positive number.');
   }
+
   if (!Number.isSafeInteger(overscan) || overscan < 0) {
     throw new RangeError('Overscan must be a non-negative safe integer.');
   }
@@ -145,4 +173,3 @@ export function getVisibleMatrixRows(
     last: Math.min(rowCount - 1, lastVisible + overscan),
   };
 }
-

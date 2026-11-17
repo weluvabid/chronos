@@ -7,14 +7,18 @@ class FakeWorker {
   readonly listeners = new Map<string, ((event: never) => void)[]>();
   readonly sent: unknown[] = [];
   terminated = false;
-  postMessage(message: unknown): void { this.sent.push(message); }
+  postMessage(message: unknown): void {
+    this.sent.push(message);
+  }
   addEventListener(type: string, listener: (event: never) => void): void {
     const listeners = this.listeners.get(type) ?? [];
 
     listeners.push(listener);
     this.listeners.set(type, listeners);
   }
-  terminate(): void { this.terminated = true; }
+  terminate(): void {
+    this.terminated = true;
+  }
   emitMessage(message: WorkerResponse): void {
     for (const listener of this.listeners.get('message') ?? []) {
       listener({ data: message } as never);
@@ -29,7 +33,10 @@ test('worker client correlates responses and enforces request backpressure', asy
   const overflowRequest = requests.at(64);
 
   assert.ok(overflowRequest !== undefined);
-  const overflow = overflowRequest.then(() => null, (error: unknown) => error);
+  const overflow = overflowRequest.then(
+    () => null,
+    (error: unknown) => error,
+  );
 
   worker.emitMessage({ version: 1, requestId: 0, type: 'READY' });
   await new Promise((resolve) => setImmediate(resolve));
@@ -41,10 +48,25 @@ test('worker client correlates responses and enforces request backpressure', asy
 
   const first = worker.sent[0] as { requestId: number };
 
-  worker.emitMessage({ version: 1, requestId: first.requestId, type: 'METRICS', metrics: {
-    timers: 4, activeTimers: 3, capacity: 8, scheduledEvents: 0, nextDeadline: null,
-  } });
-  assert.deepEqual(await requests[0], { timers: 4, activeTimers: 3, capacity: 8, scheduledEvents: 0, nextDeadline: null });
+  worker.emitMessage({
+    version: 1,
+    requestId: first.requestId,
+    type: 'METRICS',
+    metrics: {
+      timers: 4,
+      activeTimers: 3,
+      capacity: 8,
+      scheduledEvents: 0,
+      nextDeadline: null,
+    },
+  });
+  assert.deepEqual(await requests[0], {
+    timers: 4,
+    activeTimers: 3,
+    capacity: 8,
+    scheduledEvents: 0,
+    nextDeadline: null,
+  });
   client.close();
   assert.equal(worker.terminated, true);
   await Promise.allSettled(requests.slice(1, 64));
@@ -62,7 +84,6 @@ test('worker client rejects pending work after worker failure', async () => {
   await assert.rejects(pending, /boom/);
   assert.equal(worker.terminated, true);
 });
-
 
 test('worker client terminates on an invalid response envelope', async () => {
   const worker = new FakeWorker();

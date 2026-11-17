@@ -26,6 +26,7 @@ export default defineConfig(
       '**/build/**',
       '**/target/**',
       '**/.astro/**',
+      '**/tests/**',
     ],
   },
   eslint.configs.recommended,

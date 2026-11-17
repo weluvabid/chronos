@@ -12,7 +12,8 @@
     "allowJs": true,
     "checkJs": true,
     "noEmit": true,
-    "allowImportingTsExtensions": true
+    "allowImportingTsExtensions": true,
+    "types": ["node"]
   },
   "include": [".astro/types.d.ts", "**/*"],
   "exclude": ["dist", "node_modules", "tests", "profiles", "astro.config.mjs"]

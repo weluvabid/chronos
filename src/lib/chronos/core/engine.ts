@@ -1,7 +1,11 @@
 import type { Clock } from './clock.ts';
 import { TimerRegistry } from './timer-registry.ts';
 import type { TimerHandle } from './types.ts';
-import { DeadlineQueue, ScheduledEventKind, type ScheduledEvent } from '../scheduler/deadline-queue.ts';
+import {
+  DeadlineQueue,
+  ScheduledEventKind,
+  type ScheduledEvent,
+} from '../scheduler/deadline-queue.ts';
 
 export interface EngineMetrics {
   readonly timers: number;

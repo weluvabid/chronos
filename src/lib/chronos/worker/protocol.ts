@@ -8,13 +8,48 @@ export const PROTOCOL_VERSION = 1;
 export type TimerAction = 'start' | 'clear';
 
 export type WorkerRequest =
-  | { readonly version: 1; readonly requestId: number; readonly type: 'CREATE_TIMER'; readonly startImmediately?: boolean }
-  | { readonly version: 1; readonly requestId: number; readonly type: 'TIMER_ACTION'; readonly action: TimerAction; readonly handle: TimerHandle }
-  | { readonly version: 1; readonly requestId: number; readonly type: 'SCHEDULE_DEADLINE'; readonly handle: TimerHandle; readonly delayMs: number; readonly payload?: number }
-  | { readonly version: 1; readonly requestId: number; readonly type: 'CANCEL_DEADLINE'; readonly eventId: number }
-  | { readonly version: 1; readonly requestId: number; readonly type: 'QUERY_WINDOW'; readonly offset: number; readonly limit: number }
+  | {
+      readonly version: 1;
+      readonly requestId: number;
+      readonly type: 'CREATE_TIMER';
+      readonly startImmediately?: boolean;
+    }
+  | {
+      readonly version: 1;
+      readonly requestId: number;
+      readonly type: 'TIMER_ACTION';
+      readonly action: TimerAction;
+      readonly handle: TimerHandle;
+    }
+  | {
+      readonly version: 1;
+      readonly requestId: number;
+      readonly type: 'SCHEDULE_DEADLINE';
+      readonly handle: TimerHandle;
+      readonly delayMs: number;
+      readonly payload?: number;
+    }
+  | {
+      readonly version: 1;
+      readonly requestId: number;
+      readonly type: 'CANCEL_DEADLINE';
+      readonly eventId: number;
+    }
+  | {
+      readonly version: 1;
+      readonly requestId: number;
+      readonly type: 'QUERY_WINDOW';
+      readonly offset: number;
+      readonly limit: number;
+    }
   | { readonly version: 1; readonly requestId: number; readonly type: 'METRICS' }
-  | { readonly version: 1; readonly requestId: number; readonly type: 'LOAD_SIMULATION'; readonly count: number; readonly seed?: number }
+  | {
+      readonly version: 1;
+      readonly requestId: number;
+      readonly type: 'LOAD_SIMULATION';
+      readonly count: number;
+      readonly seed?: number;
+    }
   | { readonly version: 1; readonly requestId: number; readonly type: 'RECONCILE' };
 
 interface ResponseBase {
@@ -42,8 +77,11 @@ function isTimerHandle(value: unknown): value is TimerHandle {
 }
 
 function isResponseBase(value: Record<string, unknown>): boolean {
-  return value.version === PROTOCOL_VERSION && Number.isSafeInteger(value.requestId) &&
-    (value.requestId as number) >= 0;
+  return (
+    value.version === PROTOCOL_VERSION &&
+    Number.isSafeInteger(value.requestId) &&
+    (value.requestId as number) >= 0
+  );
 }
 
 export function isWorkerRequest(value: unknown): value is WorkerRequest {
@@ -59,29 +97,47 @@ export function isWorkerRequest(value: unknown): value is WorkerRequest {
 
   switch (candidate.type) {
     case 'CREATE_TIMER':
-      return candidate.startImmediately === undefined || typeof candidate.startImmediately === 'boolean';
+      return (
+        candidate.startImmediately === undefined || typeof candidate.startImmediately === 'boolean'
+      );
     case 'TIMER_ACTION':
-      return isTimerHandle(candidate.handle) &&
-        ['start', 'clear'].includes(String(candidate.action));
+      return (
+        isTimerHandle(candidate.handle) && ['start', 'clear'].includes(String(candidate.action))
+      );
     case 'SCHEDULE_DEADLINE':
-      return isTimerHandle(candidate.handle) && typeof candidate.delayMs === 'number' &&
-        Number.isFinite(candidate.delayMs) && (candidate.delayMs as number) >= 0 &&
-        (candidate.payload === undefined || (Number.isSafeInteger(candidate.payload) &&
-          (candidate.payload as number) >= 0 && (candidate.payload as number) <= 0xffffffff));
+      return (
+        isTimerHandle(candidate.handle) &&
+        typeof candidate.delayMs === 'number' &&
+        Number.isFinite(candidate.delayMs) &&
+        (candidate.delayMs as number) >= 0 &&
+        (candidate.payload === undefined ||
+          (Number.isSafeInteger(candidate.payload) &&
+            (candidate.payload as number) >= 0 &&
+            (candidate.payload as number) <= 0xffffffff))
+      );
     case 'CANCEL_DEADLINE':
       return Number.isSafeInteger(candidate.eventId) && (candidate.eventId as number) > 0;
     case 'QUERY_WINDOW':
-      return Number.isSafeInteger(candidate.offset) && (candidate.offset as number) >= 0 &&
-        Number.isSafeInteger(candidate.limit) && (candidate.limit as number) >= 0 &&
-        (candidate.limit as number) <= 10_000;
+      return (
+        Number.isSafeInteger(candidate.offset) &&
+        (candidate.offset as number) >= 0 &&
+        Number.isSafeInteger(candidate.limit) &&
+        (candidate.limit as number) >= 0 &&
+        (candidate.limit as number) <= 10_000
+      );
     case 'METRICS':
     case 'RECONCILE':
       return true;
     case 'LOAD_SIMULATION':
-      return Number.isSafeInteger(candidate.count) && (candidate.count as number) >= 0 &&
+      return (
+        Number.isSafeInteger(candidate.count) &&
+        (candidate.count as number) >= 0 &&
         (candidate.count as number) <= 100_000 &&
-        (candidate.seed === undefined || (Number.isSafeInteger(candidate.seed) &&
-          (candidate.seed as number) >= 0 && (candidate.seed as number) <= 0xffffffff));
+        (candidate.seed === undefined ||
+          (Number.isSafeInteger(candidate.seed) &&
+            (candidate.seed as number) >= 0 &&
+            (candidate.seed as number) <= 0xffffffff))
+      );
     default:
       return false;
   }
@@ -106,17 +162,39 @@ export function isWorkerResponse(value: unknown): value is WorkerResponse {
     case 'TIMER_CREATED':
       return requestId > 0 && isTimerHandle(candidate.handle);
     case 'ACK':
-      return requestId > 0 && (candidate.result === undefined || typeof candidate.result === 'boolean' ||
-        (typeof candidate.result === 'number' && Number.isFinite(candidate.result)));
+      return (
+        requestId > 0 &&
+        (candidate.result === undefined ||
+          typeof candidate.result === 'boolean' ||
+          (typeof candidate.result === 'number' && Number.isFinite(candidate.result)))
+      );
     case 'WINDOW': {
-      if (requestId === 0 || !Number.isSafeInteger(candidate.offset) || (candidate.offset as number) < 0 ||
-        !Number.isSafeInteger(candidate.total) || (candidate.total as number) < 0 ||
-        !(candidate.startedAt instanceof Float64Array)) return false;
-      const count = candidate.startedAt.length;
-      if (count > 10_000 || (count > 0 && (candidate.offset as number) + count > (candidate.total as number))) return false;
-      for (const startedAt of candidate.startedAt) {
-        if (!Number.isFinite(startedAt)) return false;
+      if (
+        requestId === 0 ||
+        !Number.isSafeInteger(candidate.offset) ||
+        (candidate.offset as number) < 0 ||
+        !Number.isSafeInteger(candidate.total) ||
+        (candidate.total as number) < 0 ||
+        !(candidate.startedAt instanceof Float64Array)
+      ) {
+        return false;
       }
+
+      const count = candidate.startedAt.length;
+
+      if (
+        count > 10_000 ||
+        (count > 0 && (candidate.offset as number) + count > (candidate.total as number))
+      ) {
+        return false;
+      }
+
+      for (const startedAt of candidate.startedAt) {
+        if (!Number.isFinite(startedAt)) {
+          return false;
+        }
+      }
+
       return true;
     }
     case 'METRICS': {
@@ -126,11 +204,15 @@ export function isWorkerResponse(value: unknown): value is WorkerResponse {
 
       const metrics = candidate.metrics as Record<string, unknown>;
 
-      return ['timers', 'activeTimers', 'capacity', 'scheduledEvents'].every((key) =>
-        Number.isSafeInteger(metrics[key]) && (metrics[key] as number) >= 0) &&
+      return (
+        ['timers', 'activeTimers', 'capacity', 'scheduledEvents'].every(
+          (key) => Number.isSafeInteger(metrics[key]) && (metrics[key] as number) >= 0,
+        ) &&
         (metrics.activeTimers as number) <= (metrics.timers as number) &&
         (metrics.capacity as number) >= (metrics.timers as number) &&
-        (metrics.nextDeadline === null || (typeof metrics.nextDeadline === 'number' && Number.isFinite(metrics.nextDeadline)));
+        (metrics.nextDeadline === null ||
+          (typeof metrics.nextDeadline === 'number' && Number.isFinite(metrics.nextDeadline)))
+      );
     }
     case 'SIMULATION': {
       if (requestId === 0 || typeof candidate.summary !== 'object' || candidate.summary === null) {
@@ -139,9 +221,13 @@ export function isWorkerResponse(value: unknown): value is WorkerResponse {
 
       const summary = candidate.summary as Record<string, unknown>;
 
-      return ['seed', 'timers'].every((key) =>
-        Number.isSafeInteger(summary[key]) && (summary[key] as number) >= 0) &&
-        (summary.seed as number) <= 0xffffffff && (summary.timers as number) <= 100_000;
+      return (
+        ['seed', 'timers'].every(
+          (key) => Number.isSafeInteger(summary[key]) && (summary[key] as number) >= 0,
+        ) &&
+        (summary.seed as number) <= 0xffffffff &&
+        (summary.timers as number) <= 100_000
+      );
     }
     case 'EVENTS_DUE': {
       if (requestId !== 0 || !Array.isArray(candidate.events)) {
@@ -157,11 +243,17 @@ export function isWorkerResponse(value: unknown): value is WorkerResponse {
 
         const scheduled = event as Record<string, unknown>;
 
-        return Number.isSafeInteger(scheduled.id) && (scheduled.id as number) > 0 &&
-          typeof scheduled.deadline === 'number' && Number.isFinite(scheduled.deadline) &&
-          (scheduled.kind === 1 || scheduled.kind === 2) && isTimerHandle(scheduled.handle) &&
-          Number.isSafeInteger(scheduled.payload) && (scheduled.payload as number) >= 0 &&
-          (scheduled.payload as number) <= 0xffffffff;
+        return (
+          Number.isSafeInteger(scheduled.id) &&
+          (scheduled.id as number) > 0 &&
+          typeof scheduled.deadline === 'number' &&
+          Number.isFinite(scheduled.deadline) &&
+          (scheduled.kind === 1 || scheduled.kind === 2) &&
+          isTimerHandle(scheduled.handle) &&
+          Number.isSafeInteger(scheduled.payload) &&
+          (scheduled.payload as number) >= 0 &&
+          (scheduled.payload as number) <= 0xffffffff
+        );
       });
     }
     case 'ERROR':

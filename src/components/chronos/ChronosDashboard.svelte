@@ -2,12 +2,22 @@
   import { onMount } from 'svelte';
   import * as Dialog from '@weluvabid/iris/components/ui/dialog';
   import * as ScrollArea from '@weluvabid/iris/components/ui/scroll-area';
-  import { Skeleton } from '@weluvabid/iris/components/ui/skeleton';
   import LivePerformanceDock from './LivePerformanceDock.svelte';
   import { ChronosWorkerClient } from '@lib/chronos/worker/client.ts';
   import { CanvasMatrixRenderer } from '@lib/chronos/dashboard/canvas-matrix-renderer.ts';
   import { VisibleWindowController } from '@lib/chronos/dashboard/visible-window.ts';
-  import { getMatrixColumns, getVisibleMatrixRows, getVisibleTimerRange, MATRIX_COLUMNS, MATRIX_ROW_HEIGHT, TARGET_TIMER_COUNT, timerId, timerName, timerStatus, type MatrixRowRange } from '@lib/chronos/dashboard/matrix-model.ts';
+  import {
+    getMatrixColumns,
+    getVisibleMatrixRows,
+    getVisibleTimerRange,
+    MATRIX_COLUMNS,
+    MATRIX_ROW_HEIGHT,
+    TARGET_TIMER_COUNT,
+    timerId,
+    timerName,
+    timerStatus,
+    type MatrixRowRange,
+  } from '@lib/chronos/dashboard/matrix-model.ts';
   import { elapsedAt, formatDuration } from '@lib/chronos/dashboard/timer-format.ts';
   import { appendPerformanceSample } from '@lib/chronos/dashboard/performance-history.ts';
   import type { TimerRecord, TimerMatrixSummary } from '@lib/chronos/simulation/timer-matrix.ts';
@@ -52,13 +62,25 @@
   }
 
   function visibleRange() {
-    return getVisibleTimerRange(matrixScrollTop(), matrixViewportHeight(), rowCount, summary?.timers ?? 0, OVERSCAN_ROWS, matrixColumns);
+    return getVisibleTimerRange(
+      matrixScrollTop(),
+      matrixViewportHeight(),
+      rowCount,
+      summary?.timers ?? 0,
+      OVERSCAN_ROWS,
+      matrixColumns,
+    );
   }
 
-  function scheduleDraw(): void { renderer?.schedule(); }
+  function scheduleDraw(): void {
+    renderer?.schedule();
+  }
 
   function requestVisibleWindow(force = false): Promise<void> {
-    if (summary === null || windowController === null) return Promise.resolve();
+    if (summary === null || windowController === null) {
+      return Promise.resolve();
+    }
+
     return windowController.request(force);
   }
 
@@ -69,48 +91,74 @@
 
   function handleViewportResize(): void {
     const nextColumns = getMatrixColumns(matrixSpacerElement?.clientWidth ?? window.innerWidth);
+
     if (nextColumns !== matrixColumns) {
       matrixColumns = nextColumns;
       rowCount = Math.ceil((summary?.timers ?? 0) / matrixColumns);
+
       void requestVisibleWindow(true);
     }
+
     scheduleDraw();
   }
 
   function handlePointerMove(event: PointerEvent): void {
     const next = renderer?.hitTest(event.clientX, event.clientY) ?? null;
+
     if (next !== hoveredHandle) {
       hoveredHandle = next;
+
       scheduleDraw();
-      if (canvasElement) canvasElement.style.cursor = next === null ? 'default' : 'pointer';
+
+      if (canvasElement) {
+        canvasElement.style.cursor = next === null ? 'default' : 'pointer';
+      }
     }
   }
 
   function handlePointerLeave(): void {
     hoveredHandle = null;
-    if (canvasElement) canvasElement.style.cursor = 'default';
+
+    if (canvasElement) {
+      canvasElement.style.cursor = 'default';
+    }
   }
 
   function handleCanvasClick(event: MouseEvent): void {
     const handle = renderer?.hitTest(event.clientX, event.clientY) ?? null;
-    if (selectedHandle === handle) { selectedHandle = null; selectedRecord = null; }
-    else { selectedHandle = handle; selectedRecord = records[handle - windowOffset] ?? null; }
+
+    if (handle === null || selectedHandle === handle) {
+      selectedHandle = null;
+      selectedRecord = null;
+    } else {
+      selectedHandle = handle;
+      selectedRecord = records[handle - windowOffset] ?? null;
+    }
+
     scheduleDraw();
   }
 
-
   async function initialize(): Promise<void> {
     const worker = client;
-    if (worker === null || summary !== null) return;
+
+    if (worker === null || summary !== null) {
+      return;
+    }
+
     status = 'initializing';
+
     try {
       summary = await worker.loadSimulation(TARGET_TIMER_COUNT, 0x00c0ffee);
       rowCount = Math.ceil(summary.timers / matrixColumns);
+
       await requestVisibleWindow(true);
+
       status = 'ready';
+
       scheduleDraw();
     } catch (error) {
-      errorMessage = error instanceof Error ? error.message : 'Unable to initialize the timer population.';
+      errorMessage =
+        error instanceof Error ? error.message : 'Unable to initialize the timer population.';
       status = 'error';
     }
   }
@@ -119,6 +167,7 @@
     if (event.key === 'Escape') {
       selectedHandle = null;
       selectedRecord = null;
+
       scheduleDraw();
     }
   }
@@ -127,6 +176,7 @@
     const worker = ChronosWorkerClient.create();
     let lastMetricsUpdate = Number.NEGATIVE_INFINITY;
     let lastHistorySample = Number.NEGATIVE_INFINITY;
+
     client = worker;
     renderer = new CanvasMatrixRenderer({
       getCanvas: () => canvasElement,
@@ -159,14 +209,25 @@
       query: async (offset, limit) => {
         const started = performance.now();
         const page = await worker.queryWindow(offset, limit);
+
         workerMs = performance.now() - started;
+
         return page;
       },
       getRange: visibleRange,
-      hasCachedRange: ({ first, last }) => first >= windowOffset && last < windowOffset + records.length,
+      hasCachedRange: ({ first, last }) =>
+        first >= windowOffset && last < windowOffset + records.length,
       getExpectedTotal: () => summary?.timers ?? null,
-      onPage: (page) => { records = [...page.records]; windowOffset = page.offset; scheduleDraw(); },
-      onError: (error) => { errorMessage = error instanceof Error ? error.message : 'Unable to retrieve timer data.'; status = 'error'; },
+      onPage: (page) => {
+        records = [...page.records];
+        windowOffset = page.offset;
+
+        scheduleDraw();
+      },
+      onError: (error) => {
+        errorMessage = error instanceof Error ? error.message : 'Unable to retrieve timer data.';
+        status = 'error';
+      },
     });
 
     let disposed = false;
@@ -174,40 +235,63 @@
     let lastFpsSample = performance.now();
     let fpsFrame = 0;
     const sampleFps = (now: number) => {
-      if (disposed) return;
+      if (disposed) {
+        return;
+      }
+
       frameCount += 1;
+
       if (now - lastFpsSample >= 1_000) {
         fps = Math.round((frameCount * 1_000) / (now - lastFpsSample));
         frameCount = 0;
         lastFpsSample = now;
       }
+
       fpsFrame = requestAnimationFrame(sampleFps);
     };
+
     fpsFrame = requestAnimationFrame(sampleFps);
 
     const tickHandle = window.setInterval(() => {
-      if (status === 'ready') scheduleDraw();
+      if (status === 'ready') {
+        scheduleDraw();
+      }
     }, 1_000);
     const resizeObserver = new ResizeObserver(() => {
       handleViewportResize();
     });
+
     if (scrollElement !== null) {
       resizeObserver.observe(scrollElement);
       scrollElement.addEventListener('scroll', handleScroll, { passive: true });
     }
-    if (matrixSpacerElement !== null) resizeObserver.observe(matrixSpacerElement);
+
+    if (matrixSpacerElement !== null) {
+      resizeObserver.observe(matrixSpacerElement);
+    }
+
     window.addEventListener('resize', handleViewportResize, { passive: true });
     const handleThemeChange = () => renderer?.invalidateTheme();
+
     document.addEventListener('chronos:themechange', handleThemeChange);
 
-    void worker.ready.then(() => {
-      if (disposed) return;
-      return initialize();
-    }).catch((error: unknown) => {
-      if (disposed) return;
-      errorMessage = error instanceof Error ? error.message : 'Chronos worker failed to initialize.';
-      status = 'error';
-    });
+    void worker.ready
+      .then(() => {
+        if (disposed) {
+          return;
+        }
+
+        return initialize();
+      })
+      .catch((error: unknown) => {
+        if (disposed) {
+          return;
+        }
+
+        errorMessage =
+          error instanceof Error ? error.message : 'Chronos worker failed to initialize.';
+        status = 'error';
+      });
 
     const reconcile = () => {
       if (document.visibilityState === 'visible') {
@@ -216,10 +300,13 @@
         scheduleDraw();
       }
     };
+
     document.addEventListener('visibilitychange', reconcile);
     window.addEventListener('pageshow', reconcile);
+
     return () => {
       disposed = true;
+
       cancelAnimationFrame(fpsFrame);
       window.clearInterval(tickHandle);
       resizeObserver.disconnect();
@@ -231,6 +318,7 @@
       renderer?.destroy();
       windowController?.close();
       worker.close();
+
       renderer = null;
       windowController = null;
       client = null;
@@ -241,36 +329,47 @@
     if (summary !== null && matrixSpacerElement !== null) {
       matrixColumns = getMatrixColumns(matrixSpacerElement.clientWidth);
       rowCount = Math.ceil(summary.timers / matrixColumns);
+
       void requestVisibleWindow(true);
     }
   });
 
   $effect(() => {
-    if (selectedHandle === null || selectedRecord === null) return;
+    if (selectedHandle === null || selectedRecord === null) {
+      return;
+    }
+
     selectedNow = performance.timeOrigin + performance.now();
+
     const interval = window.setInterval(() => {
       selectedNow = performance.timeOrigin + performance.now();
     }, 1_000);
+
     return () => window.clearInterval(interval);
   });
 
   function selectedElapsed(): string {
-    return selectedRecord === null ? '—' : formatDuration(elapsedAt(selectedRecord.startedAt, selectedNow));
+    return selectedRecord === null
+      ? '—'
+      : formatDuration(elapsedAt(selectedRecord.startedAt, selectedNow));
   }
 </script>
 
 <svelte:window onkeydown={selectNext} />
 
 <section class="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col gap-4 sm:gap-6">
-
   {#if errorMessage}
-    <div role="alert" class="border-y border-destructive/40 py-3 text-sm text-destructive">{errorMessage}</div>
+    <div role="alert" class="border-y border-destructive/40 py-3 text-sm text-destructive">
+      {errorMessage}
+    </div>
   {/if}
 
   <div class="flex shrink-0 items-center justify-between gap-3">
     <div>
       <p class="text-xs font-semibold uppercase tracking-[0.18em]">
-        Live timer matrix {#if summary !== null}  ({matrixColumns} columns) {/if}
+        Live timer matrix {#if summary !== null}
+          ({matrixColumns} columns)
+        {/if}
       </p>
       <p class="mt-1 text-xs text-muted-foreground">100,000 independent timers · Canvas-rendered</p>
     </div>
@@ -283,11 +382,17 @@
     aria-label="100,000 continuously running timers"
   >
     {#if summary === null}
-      <div class="grid min-h-72 w-full place-items-center px-4 text-center text-sm text-muted-foreground">
+      <div
+        class="grid min-h-72 w-full place-items-center px-4 text-center text-sm text-muted-foreground"
+      >
         {status === 'initializing' ? 'Starting 100,000 timers…' : 'Waiting for timer engine…'}
       </div>
     {:else}
-      <div bind:this={matrixSpacerElement} class="relative w-full" style={`height:${rowCount * MATRIX_ROW_HEIGHT}px`}>
+      <div
+        bind:this={matrixSpacerElement}
+        class="relative w-full"
+        style={`height:${rowCount * MATRIX_ROW_HEIGHT}px`}
+      >
         <canvas
           bind:this={canvasElement}
           class="sticky top-0 z-10 block w-full bg-background touch-pan-y"
@@ -301,13 +406,7 @@
     {/if}
   </ScrollArea.Root>
 
-  <LivePerformanceDock
-    {fps}
-    {renderMs}
-    {workerMs}
-    {visibleTimers}
-    frameSamples={frameSamples}
-  />
+  <LivePerformanceDock {fps} {renderMs} {workerMs} {visibleTimers} {frameSamples} />
 
   <Dialog.Root
     open={selectedHandle !== null}
@@ -315,6 +414,7 @@
       if (!open) {
         selectedHandle = null;
         selectedRecord = null;
+
         scheduleDraw();
       }
     }}
@@ -323,17 +423,23 @@
       {#if selectedHandle !== null}
         <Dialog.Header>
           <Dialog.Title>Timer inspector</Dialog.Title>
-          <Dialog.Description>{timerId(selectedHandle)} · {timerName(selectedHandle)}</Dialog.Description>
+          <Dialog.Description
+            >{timerId(selectedHandle)} · {timerName(selectedHandle)}</Dialog.Description
+          >
         </Dialog.Header>
         <div class="space-y-4">
           <div>
             <p class="font-mono text-3xl font-semibold tabular-nums">{selectedElapsed()}</p>
-            <p class="mt-1 text-[10px] uppercase tracking-wider text-muted-foreground">Elapsed time · {selectedRecord ? timerStatus(selectedRecord.handle) : '—'}</p>
+            <p class="mt-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+              Elapsed time · {selectedRecord ? timerStatus(selectedRecord.handle) : '—'}
+            </p>
           </div>
           {#if selectedRecord}
             <div class="rounded-lg border border-border bg-muted/30 p-3">
               <p class="text-xs text-muted-foreground">Started</p>
-              <p class="mt-1 font-mono text-sm">{new Date(selectedRecord.startedAt).toLocaleTimeString()}</p>
+              <p class="mt-1 font-mono text-sm">
+                {new Date(selectedRecord.startedAt).toLocaleTimeString()}
+              </p>
             </div>
           {/if}
         </div>

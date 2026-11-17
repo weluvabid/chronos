@@ -7,6 +7,7 @@ export function appendPerformanceSample(
   if (!Number.isFinite(sample) || sample < 0) {
     throw new RangeError('Performance sample must be a finite, non-negative number.');
   }
+
   if (!Number.isSafeInteger(capacity) || capacity < 1) {
     throw new RangeError('Performance history capacity must be a positive safe integer.');
   }
@@ -26,22 +27,34 @@ export function buildPerformancePolyline(
   if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0) {
     throw new RangeError('Graph dimensions must be finite and positive.');
   }
+
   if (!Number.isFinite(padding) || padding < 0 || padding * 2 >= height) {
-    throw new RangeError('Graph padding must be non-negative and smaller than half the graph height.');
+    throw new RangeError(
+      'Graph padding must be non-negative and smaller than half the graph height.',
+    );
   }
+
   if (samples.some((sample) => !Number.isFinite(sample) || sample < 0)) {
     throw new RangeError('Performance history contains an invalid sample.');
   }
-  if (samples.length === 0) return '';
 
-  const max = Math.max(1, samples.reduce((current, sample) => Math.max(current, sample), 0));
+  if (samples.length === 0) {
+    return '';
+  }
+
+  const max = Math.max(
+    1,
+    samples.reduce((current, sample) => Math.max(current, sample), 0),
+  );
   const drawableHeight = height - padding * 2;
   const lastIndex = samples.length - 1;
 
-  return samples.map((sample, index) => {
-    const x = lastIndex === 0 ? 0 : (index / lastIndex) * width;
-    const y = height - padding - (sample / max) * drawableHeight;
+  return samples
+    .map((sample, index) => {
+      const x = lastIndex === 0 ? 0 : (index / lastIndex) * width;
+      const y = height - padding - (sample / max) * drawableHeight;
 
-    return `${x},${y}`;
-  }).join(' ');
+      return `${x},${y}`;
+    })
+    .join(' ');
 }

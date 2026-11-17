@@ -52,6 +52,12 @@ test('invalid identifiers and clock regressions fail without changing timestamps
   const id = registry.create();
   registry.start(id);
   now = 9;
-  assert.throws(() => registry.elapsed(id), (error: unknown) => error instanceof ChronosError && error.code === 'CLOCK_REGRESSION');
-  assert.throws(() => registry.start(99), (error: unknown) => error instanceof ChronosError && error.code === 'INVALID_TIMER_ID');
+  assert.throws(
+    () => registry.elapsed(id),
+    (error: unknown) => error instanceof ChronosError && error.code === 'CLOCK_REGRESSION',
+  );
+  assert.throws(
+    () => registry.start(99),
+    (error: unknown) => error instanceof ChronosError && error.code === 'INVALID_TIMER_ID',
+  );
 });

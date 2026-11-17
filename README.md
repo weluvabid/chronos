@@ -1,38 +1,49 @@
 # Chronos
 
-A browser time coordination engine experiment. Chronos coordinates large populations of elapsed-time timers and one-shot deadlines without creating a callback per timer or rendering every record into the DOM.
+A browser-based time coordination engine. It has 100,000 timers running,
+managed by a dedicated Web Worker. It displays a limited, scrollable
+view of the timers using Canvas 2D.
 
-## Architecture
+The main principle is that there is no need to track a timer interval or
+maintain a counter. Just track when the timer was started and calculate
+the elapsed time using a single monotonic clock.
 
-- Framework-independent TypeScript timer engine.
-- Dedicated Web Worker owns timer state and the centralized deadline scheduler.
-- Compact typed-array timer registry with generation-checked handles.
-- Indexed binary min-heap for one-shot deadline events.
-- Versioned request/response worker protocol with bounded typed-array window transfers.
-- Svelte 5 monitor uses Iris components and TanStack Virtual to render only visible rows plus overscan.
-- Deterministic call-centre simulation supports up to 100,000 agents and repeatable churn.
+## How it works
 
-## Stack
+Timers are tracked using timestamps. All timers store a `startedAt`
+value using a `Float64Array`. The elapsed time is calculated using
+`now - startedAt`. There is no ticking or updating of the 100,000
+timers.
 
-- Node.js 26 LTS and pnpm 12
-- Astro static site
-- Svelte 5
-- Iris UI library
-- TanStack Svelte Virtual
-- TypeScript and Web Workers
+**Monotonic clock.** The worker uses
+`performance.timeOrigin + performance.now()` to get a timestamp based on
+a monotonic clock. Clock regression is checked separately, and an
+unexpected regression results in an explicit failure. We also have a
+manual clock for deterministic testing and simulations.
 
-## Development
+Timers are stored in a compact registry. Each timer has a handle, which
+is a number used to index into a dynamic typed array. All active timers
+are tracked, and any invalid handles or unexpected clock regression will
+result in an explicit failure.
 
-```sh
-pnpm install --frozen-lockfile
-pnpm dev
-```
+Deadlines are stored in an indexed binary min-heap using typed arrays.
+Adding and removing items is O(log n), and getting the next deadline is
+O(1). Deadlines can be cancelled using an ID. The worker sets a timeout
+for the next deadline and clears any due events in batches.
 
-## Verification
+The worker manages the engine, timers, simulation and scheduler. A
+versioned request/response system is used to ensure messages are valid,
+with explicit error handling for invalid or unsupported requests.
 
-```sh
-pnpm check
-pnpm benchmark
-```
+The UI only asks for a section of the timers based on what is visible.
+The worker returns a slice of the `Float64Array` and transfers the
+buffer.
 
-The benchmark is a local Node.js engine microbenchmark, not a browser performance claim. See [architecture](docs/architecture.md) and [performance notes](docs/performance.md) for design constraints and the measured baseline.
+Canvas 2D is used to draw only visible rows plus some overscan. This
+gives the scrollable matrix a logical height without creating 100,000
+DOM elements. Rendering is handled using `requestAnimationFrame`.
+
+The workload is deterministic. The 100,000 timers are created using a
+seeded generator. The workload names and status indicators are static
+labels based on the timer handle. They are not indicative of the state
+of the service.

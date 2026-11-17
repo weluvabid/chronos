@@ -5,6 +5,7 @@ export class ChronosError extends Error {
 
   constructor(message: string, code: string) {
     super(message);
+
     this.name = 'ChronosError';
     this.code = code;
   }

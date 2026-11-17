@@ -22,8 +22,10 @@ test('100k timer population starts with deterministic, varied elapsed offsets', 
   assert.deepEqual(Array.from(replay.windowBuffers(0, 64).startedAt), timestamps);
 
   clock.advance(5_000);
-  assert.equal(clock.now() - (simulation.windowBuffers(42_979, 1).startedAt[0] ?? 0),
-    5_000 + (1_000 - (simulation.windowBuffers(42_979, 1).startedAt[0] ?? 0)));
+  assert.equal(
+    clock.now() - (simulation.windowBuffers(42_979, 1).startedAt[0] ?? 0),
+    5_000 + (1_000 - (simulation.windowBuffers(42_979, 1).startedAt[0] ?? 0)),
+  );
 });
 
 test('simulation rejects unsupported sizes', () => {

@@ -8,7 +8,9 @@ class FakeWorkerPort {
   readonly messages: WorkerResponse[] = [];
   #nextTimeout = 1;
   readonly timeouts = new Map<number, () => void>();
-  postMessage(message: unknown): void { this.messages.push(message as WorkerResponse); }
+  postMessage(message: unknown): void {
+    this.messages.push(message as WorkerResponse);
+  }
   setTimeout(handler: () => void, _timeout: number): number {
     const id = this.#nextTimeout++;
 
@@ -16,7 +18,9 @@ class FakeWorkerPort {
 
     return id;
   }
-  clearTimeout(id: number): void { this.timeouts.delete(id); }
+  clearTimeout(id: number): void {
+    this.timeouts.delete(id);
+  }
   fireNextTimeout(): void {
     const entry = this.timeouts.entries().next().value as [number, () => void] | undefined;
 
@@ -27,7 +31,9 @@ class FakeWorkerPort {
     this.timeouts.delete(entry[0]);
     entry[1]();
   }
-  send(message: WorkerRequest): void { this.onmessage?.({ data: message } as MessageEvent<unknown>); }
+  send(message: WorkerRequest): void {
+    this.onmessage?.({ data: message } as MessageEvent<unknown>);
+  }
   take(requestId: number): WorkerResponse | undefined {
     const index = this.messages.findIndex((message) => message.requestId === requestId);
 
@@ -35,7 +41,11 @@ class FakeWorkerPort {
   }
 }
 
-function request(requestId: number, type: WorkerRequest['type'], payload: Record<string, unknown> = {}): WorkerRequest {
+function request(
+  requestId: number,
+  type: WorkerRequest['type'],
+  payload: Record<string, unknown> = {},
+): WorkerRequest {
   return { version: 1, requestId, type, ...payload } as WorkerRequest;
 }
 
@@ -83,7 +93,9 @@ test('worker rejects malformed and unexpected operations observably', () => {
   const port = new FakeWorkerPort();
 
   installWorkerRuntime(port);
-  port.onmessage?.({ data: { version: 99, requestId: 1, type: 'METRICS' } } as MessageEvent<unknown>);
+  port.onmessage?.({
+    data: { version: 99, requestId: 1, type: 'METRICS' },
+  } as MessageEvent<unknown>);
   assert.equal(port.messages.at(-1)?.type, 'ERROR');
 
   if (port.messages.at(-1)?.type === 'ERROR') {
@@ -99,7 +111,6 @@ test('worker rejects malformed and unexpected operations observably', () => {
     assert.match(response.message, /before the simulation has been initialized/);
   }
 });
-
 
 test('worker maintains one central timeout and emits due deadline events', () => {
   const port = new FakeWorkerPort();
@@ -154,7 +165,9 @@ test('worker aggregates stale deadline failures instead of flooding the main thr
   port.take(4);
   port.fireNextTimeout();
 
-  const errors = port.messages.filter((message) => message.type === 'ERROR' && message.requestId === 0);
+  const errors = port.messages.filter(
+    (message) => message.type === 'ERROR' && message.requestId === 0,
+  );
 
   assert.equal(errors.length, 1);
 

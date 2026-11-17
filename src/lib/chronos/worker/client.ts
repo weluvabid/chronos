@@ -1,8 +1,18 @@
 import type { EngineMetrics } from '../core/engine.ts';
 import type { TimerHandle } from '../core/types.ts';
-import { type TimerWindow, type TimerRecord, type TimerMatrixSummary } from '../simulation/timer-matrix.ts';
+import {
+  type TimerWindow,
+  type TimerRecord,
+  type TimerMatrixSummary,
+} from '../simulation/timer-matrix.ts';
 import type { ScheduledEvent } from '../scheduler/deadline-queue.ts';
-import { isWorkerResponse, PROTOCOL_VERSION, type TimerAction, type WorkerRequest, type WorkerResponse } from './protocol.ts';
+import {
+  isWorkerResponse,
+  PROTOCOL_VERSION,
+  type TimerAction,
+  type WorkerRequest,
+  type WorkerResponse,
+} from './protocol.ts';
 
 interface WorkerLike {
   postMessage(message: unknown, transfer?: Transferable[]): void;
@@ -13,7 +23,9 @@ interface WorkerLike {
 }
 
 type RequestWithoutEnvelope = WorkerRequest extends infer Request
-  ? Request extends WorkerRequest ? Omit<Request, 'version' | 'requestId'> : never
+  ? Request extends WorkerRequest
+    ? Omit<Request, 'version' | 'requestId'>
+    : never
   : never;
 
 interface PendingRequest {
@@ -49,12 +61,18 @@ export class ChronosWorkerClient {
     });
 
     this.#worker.addEventListener('message', (event) => this.#onMessage(event.data));
-    this.#worker.addEventListener('error', (event) => this.#failAll(new Error(event.message || 'Chronos worker failed.')));
-    this.#worker.addEventListener('messageerror', () => this.#failAll(new Error('Chronos worker message could not be deserialized.')));
+    this.#worker.addEventListener('error', (event) =>
+      this.#failAll(new Error(event.message || 'Chronos worker failed.')),
+    );
+    this.#worker.addEventListener('messageerror', () =>
+      this.#failAll(new Error('Chronos worker message could not be deserialized.')),
+    );
   }
 
   static create(): ChronosWorkerClient {
-    return new ChronosWorkerClient(new Worker(new URL('./chronos.worker.ts', import.meta.url), { type: 'module' }));
+    return new ChronosWorkerClient(
+      new Worker(new URL('./chronos.worker.ts', import.meta.url), { type: 'module' }),
+    );
   }
 
   async createTimer(startImmediately = false): Promise<TimerHandle> {
@@ -121,7 +139,11 @@ export class ChronosWorkerClient {
   }
 
   async loadSimulation(count: number, seed?: number): Promise<TimerMatrixSummary> {
-    const response = await this.#request(seed === undefined ? { type: 'LOAD_SIMULATION', count } : { type: 'LOAD_SIMULATION', count, seed });
+    const response = await this.#request(
+      seed === undefined
+        ? { type: 'LOAD_SIMULATION', count }
+        : { type: 'LOAD_SIMULATION', count, seed },
+    );
 
     if (response.type !== 'SIMULATION') {
       throw new Error(`Unexpected response ${response.type} for LOAD_SIMULATION.`);
@@ -130,8 +152,9 @@ export class ChronosWorkerClient {
     return response.summary;
   }
 
-
-  async reconcile(): Promise<void> { await this.#request({ type: 'RECONCILE' }); }
+  async reconcile(): Promise<void> {
+    await this.#request({ type: 'RECONCILE' });
+  }
 
   close(): void {
     if (this.#closed) {
@@ -147,48 +170,59 @@ export class ChronosWorkerClient {
     }
 
     if (this.#pending.size + this.#waitingRequests >= 64) {
-      return Promise.reject(Object.assign(new Error('Chronos worker request queue is full.'), { code: 'CLIENT_BACKPRESSURE' }));
+      return Promise.reject(
+        Object.assign(new Error('Chronos worker request queue is full.'), {
+          code: 'CLIENT_BACKPRESSURE',
+        }),
+      );
     }
 
     this.#waitingRequests += 1;
 
-    return this.ready.then(() => {
-      this.#waitingRequests -= 1;
+    return this.ready.then(
+      () => {
+        this.#waitingRequests -= 1;
 
-      if (this.#closed) {
-        throw new Error('Chronos worker client is closed.');
-      }
-
-      return new Promise<WorkerResponse>((resolve, reject) => {
-        const requestId = this.#nextRequestId++;
-
-        if (!Number.isSafeInteger(requestId)) {
-          reject(new Error('Chronos request identifier space exhausted.'));
-
-          return;
+        if (this.#closed) {
+          throw new Error('Chronos worker client is closed.');
         }
 
-        const timeout = setTimeout(() => {
-          this.#pending.delete(requestId);
-          reject(new Error(`Chronos worker request ${request.type} timed out.`));
-        }, this.#requestTimeoutMs);
+        return new Promise<WorkerResponse>((resolve, reject) => {
+          const requestId = this.#nextRequestId++;
 
-        this.#pending.set(requestId, { resolve, reject, timeout });
-        const message = { ...request, version: PROTOCOL_VERSION, requestId } as WorkerRequest;
+          if (!Number.isSafeInteger(requestId)) {
+            reject(new Error('Chronos request identifier space exhausted.'));
 
-        try {
-          this.#worker.postMessage(message);
-        } catch (error) {
-          clearTimeout(timeout);
-          this.#pending.delete(requestId);
-          reject(error instanceof Error ? error : new Error('Unable to post message to Chronos worker.'));
-        }
-      });
-    }, (error: unknown) => {
-      this.#waitingRequests -= 1;
+            return;
+          }
 
-      throw error;
-    });
+          const timeout = setTimeout(() => {
+            this.#pending.delete(requestId);
+            reject(new Error(`Chronos worker request ${request.type} timed out.`));
+          }, this.#requestTimeoutMs);
+
+          this.#pending.set(requestId, { resolve, reject, timeout });
+          const message = { ...request, version: PROTOCOL_VERSION, requestId } as WorkerRequest;
+
+          try {
+            this.#worker.postMessage(message);
+          } catch (error) {
+            clearTimeout(timeout);
+            this.#pending.delete(requestId);
+            reject(
+              error instanceof Error
+                ? error
+                : new Error('Unable to post message to Chronos worker.'),
+            );
+          }
+        });
+      },
+      (error: unknown) => {
+        this.#waitingRequests -= 1;
+
+        throw error;
+      },
+    );
   }
 
   #onMessage(value: unknown): void {
@@ -209,8 +243,7 @@ export class ChronosWorkerClient {
     if (response.requestId === 0) {
       if (response.type === 'EVENTS_DUE') {
         this.onEventsDue?.(response.events);
-      }
-      else if (response.type === 'ERROR') {
+      } else if (response.type === 'ERROR') {
         this.onRuntimeError?.(new Error(`${response.code}: ${response.message}`));
       }
 

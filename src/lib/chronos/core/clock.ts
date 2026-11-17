@@ -18,8 +18,6 @@ export class PerformanceClock implements Clock {
       throw new RangeError('Performance clock returned a non-finite value.');
     }
 
-    // Some browser/OS clock implementations can expose tiny backwards steps.
-    // Clamp at the clock boundary so every consumer observes monotonic time.
     this.#lastTime = Math.max(this.#lastTime, current);
 
     return this.#lastTime;

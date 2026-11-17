@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { appendPerformanceSample, buildPerformancePolyline } from '../../../src/lib/chronos/dashboard/performance-history.ts';
+import {
+  appendPerformanceSample,
+  buildPerformancePolyline,
+} from '../../../src/lib/chronos/dashboard/performance-history.ts';
 
 test('performance history remains bounded while preserving sample order', () => {
   assert.deepEqual(appendPerformanceSample([1, 2, 3], 4, 3), [2, 3, 4]);

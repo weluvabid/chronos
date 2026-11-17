@@ -1,11 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { VisibleWindowController, type WindowPage } from '../../../src/lib/chronos/dashboard/visible-window.ts';
+import {
+  VisibleWindowController,
+  type WindowPage,
+} from '../../../src/lib/chronos/dashboard/visible-window.ts';
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
   let reject!: (reason: unknown) => void;
-  const promise = new Promise<T>((res, rej) => { resolve = res; reject = rej; });
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
   return { promise, resolve, reject };
 }
 
@@ -18,22 +24,43 @@ test('visible-window requests are bounded and coalesce rapid range changes', asy
   const controller = new VisibleWindowController<number>({
     query: (offset, limit) => {
       calls.push({ offset, limit });
-      return calls.length === 1 ? firstQuery.promise : Promise.resolve({ offset, total: 100_000, records: Array.from({ length: limit }, (_, i) => offset + i) });
+      return calls.length === 1
+        ? firstQuery.promise
+        : Promise.resolve({
+            offset,
+            total: 100_000,
+            records: Array.from({ length: limit }, (_, i) => offset + i),
+          });
     },
     getRange: () => range,
-    hasCachedRange: (next) => cached !== null && next.first >= cached.offset && next.last < cached.offset + cached.records.length,
+    hasCachedRange: (next) =>
+      cached !== null &&
+      next.first >= cached.offset &&
+      next.last < cached.offset + cached.records.length,
     getExpectedTotal: () => 100_000,
-    onPage: (page) => { cached = page; received.push(page); },
-    onError: (error) => { throw error; },
+    onPage: (page) => {
+      cached = page;
+      received.push(page);
+    },
+    onError: (error) => {
+      throw error;
+    },
   });
 
   controller.request();
   range = { first: 500, last: 529 };
   controller.request();
-  firstQuery.resolve({ offset: 0, total: 100_000, records: Array.from({ length: 30 }, (_, i) => i) });
+  firstQuery.resolve({
+    offset: 0,
+    total: 100_000,
+    records: Array.from({ length: 30 }, (_, i) => i),
+  });
   await new Promise((resolve) => setImmediate(resolve));
 
-  assert.deepEqual(calls, [{ offset: 0, limit: 30 }, { offset: 500, limit: 30 }]);
+  assert.deepEqual(calls, [
+    { offset: 0, limit: 30 },
+    { offset: 500, limit: 30 },
+  ]);
   assert.equal(received.length, 1);
   assert.equal(received[0]?.offset, 500);
   controller.close();
@@ -51,7 +78,9 @@ test('visible-window controller rejects mismatched totals and stops after close'
     hasCachedRange: () => false,
     getExpectedTotal: () => 100,
     onPage: () => assert.fail('Invalid page must not be published.'),
-    onError: () => { errors++; },
+    onError: () => {
+      errors++;
+    },
   });
 
   controller.request();
@@ -73,7 +102,9 @@ test('visible-window controller enforces the configured maximum range', async ()
     hasCachedRange: () => false,
     getExpectedTotal: () => 10_000,
     onPage: () => {},
-    onError: (error) => { throw error; },
+    onError: (error) => {
+      throw error;
+    },
     maxLimit: 128,
   });
 
@@ -100,7 +131,9 @@ test('visible-window query failure clears coalesced work instead of retrying in 
     hasCachedRange: () => false,
     getExpectedTotal: () => 100,
     onPage: () => {},
-    onError: () => { errorCount += 1; },
+    onError: () => {
+      errorCount += 1;
+    },
   });
 
   const firstRequest = controller.request();

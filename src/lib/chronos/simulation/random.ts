@@ -5,6 +5,7 @@ export function mulberry32Output(state: number): number {
   }
 
   let value = state;
+
   value = Math.imul(value ^ (value >>> 15), value | 1);
   value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
 

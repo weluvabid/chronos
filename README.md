@@ -8,6 +8,8 @@ The main principle is that there is no need to track a timer interval or
 maintain a counter. Just track when the timer was started and calculate the
 elapsed time using a single monotonic clock.
 
+[Try the live demo](https://weluvabid.github.io/chronos/)
+
 ## How it works
 
 Timers are tracked using timestamps. All timers store a `startedAt` value using
@@ -43,3 +45,11 @@ Rendering is handled using `requestAnimationFrame`.
 The workload is deterministic. The 100,000 timers are created using a seeded
 generator. The workload names and status indicators are static labels based on
 the timer handle. They are not indicative of the state of the service.
+
+## Benchmark
+
+Run the engine benchmark locally:
+
+```bash
+pnpm benchmark
+```

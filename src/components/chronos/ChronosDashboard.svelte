@@ -34,6 +34,9 @@
   let windowOffset = $state(0);
   let rowCount = $state(0);
   let matrixColumns = $state(MATRIX_COLUMNS);
+  let viewportHeight = $state(1);
+  let viewportMeasured = $state(false);
+  let skeletonRows = $derived(Math.ceil(viewportHeight / MATRIX_ROW_HEIGHT) + 1);
   let status = $state<'initializing' | 'ready' | 'error'>('initializing');
   let errorMessage = $state('');
   let selectedHandle = $state<number | null>(null);
@@ -90,7 +93,12 @@
   }
 
   function handleViewportResize(): void {
-    const nextColumns = getMatrixColumns(matrixSpacerElement?.clientWidth ?? window.innerWidth);
+    viewportHeight = Math.max(1, scrollElement?.clientHeight ?? 1);
+    viewportMeasured = scrollElement !== null && scrollElement.clientHeight > 0;
+
+    const nextColumns = getMatrixColumns(
+      matrixSpacerElement?.clientWidth ?? scrollElement?.clientWidth ?? window.innerWidth,
+    );
 
     if (nextColumns !== matrixColumns) {
       matrixColumns = nextColumns;
@@ -264,6 +272,7 @@
     if (scrollElement !== null) {
       resizeObserver.observe(scrollElement);
       scrollElement.addEventListener('scroll', handleScroll, { passive: true });
+      handleViewportResize();
     }
 
     if (matrixSpacerElement !== null) {
@@ -383,9 +392,27 @@
   >
     {#if summary === null}
       <div
-        class="grid min-h-72 w-full place-items-center px-4 text-center text-sm text-muted-foreground"
+        class="grid w-full content-start"
+        class:invisible={!viewportMeasured}
+        style={`height:${skeletonRows * MATRIX_ROW_HEIGHT}px;grid-template-columns:repeat(${matrixColumns},minmax(0,1fr));column-gap:14px;row-gap:16px;padding:8px 12px`}
+        role="status"
+        aria-label="Loading timer matrix"
       >
-        {status === 'initializing' ? 'Starting 100,000 timers…' : 'Waiting for timer engine…'}
+        {#each Array.from({ length: skeletonRows * matrixColumns }) as _, index (index)}
+          <div
+            class="h-[164px] min-w-0 animate-pulse rounded-[10px] border border-border bg-card px-[14px] pt-4"
+            aria-hidden="true"
+          >
+            <div class="h-2.5 w-20 rounded-sm bg-muted"></div>
+            <div class="mt-[17px] h-3.5 w-3/4 rounded-sm bg-muted"></div>
+            <div class="mt-[17px] h-7 w-2/3 rounded-sm bg-muted"></div>
+            <div class="mt-[9px] h-2 w-20 rounded-sm bg-muted"></div>
+            <div class="mt-[13px] flex items-center gap-2">
+              <div class="size-[7px] rounded-full bg-muted-foreground/40"></div>
+              <div class="h-2 w-12 rounded-sm bg-muted"></div>
+            </div>
+          </div>
+        {/each}
       </div>
     {:else}
       <div
